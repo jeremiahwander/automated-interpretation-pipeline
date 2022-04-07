@@ -87,7 +87,11 @@ def extract_comp_het_details(
 
     logging.info('Collecting all variant pairs')
 
-    logging.info(f"{len(ch_matrix.col.collect())=}")
+    collected = ch_matrix.col.collect()
+    logging.info(f"{len(collected)=}")
+
+    for i, row in enumerate(collected):
+        print(f'{i=}: {row=}')
 
     # iterate over the hail table rows
     # find all variant pair permutations which aren't both class 4
