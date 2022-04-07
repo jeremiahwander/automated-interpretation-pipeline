@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 import hail as hl
 
 from cloudpathlib import AnyPath
-from cpg_utils.hail import init_batch
+from cpg_utils.hail import init_batch, output_path
 
 
 def transform_variant_string(locus_details: hl.Struct) -> str:
@@ -64,19 +64,30 @@ def extract_comp_het_details(
 
     # set a new group of values as the key, so that we can collect on them easily
     ch_matrix = matrix.key_rows_by(matrix.locus, matrix.alleles, matrix.category_4_only)
-    ch_matrix = ch_matrix.annotate_cols(
+    #ch_matrix = ch_matrix.annotate_cols(
+    #    hets=hl.agg.group_by(
+    #        ch_matrix.info.gene_id,
+    #        hl.agg.filter(ch_matrix.GT.is_het(), hl.agg.collect(ch_matrix.row_key)),
+    #    )
+    #)
+
+    ch_matrix = ch_matrix.select_cols(
         hets=hl.agg.group_by(
             ch_matrix.info.gene_id,
             hl.agg.filter(ch_matrix.GT.is_het(), hl.agg.collect(ch_matrix.row_key)),
         )
     )
 
+    tmp_path = output_path('leo_test_ch_matrix_hets', 'tmp')
+    logging.info(f'Checkpointing to {tmp_path}')
+    ch_matrix = ch_matrix.checkpoint(tmp_path, overwrite=True)
+
     # extract those possible compound het pairs out as a non-Hail structure
-    compound_hets = {}
+    #compound_hets = {}
 
     logging.info('Collecting all variant pairs')
 
-    logging.info(f"{ch_matrix.select_cols('hets').col.collect()=}")
+    logging.info(f"{len(ch_matrix.col.collect())=}")
 
     # iterate over the hail table rows
     # find all variant pair permutations which aren't both class 4
