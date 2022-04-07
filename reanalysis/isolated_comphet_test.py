@@ -71,12 +71,12 @@ def extract_comp_het_details(
     #    )
     #)
 
-    ch_matrix = ch_matrix.select_cols(
-        hets=hl.agg.group_by(
-            ch_matrix.info.gene_id,
-            hl.agg.filter(ch_matrix.GT.is_het(), hl.agg.collect(ch_matrix.row_key)),
-        )
-    )
+    #ch_matrix = ch_matrix.select_cols(
+    #    hets=hl.agg.group_by(
+    #        ch_matrix.info.gene_id,
+    #        hl.agg.filter(ch_matrix.GT.is_het(), hl.agg.collect(ch_matrix.row_key)),
+    #    )
+    #)
 
     tmp_path = output_path('leo_test_ch_matrix_hets', 'tmp')
     logging.info(f'Checkpointing to {tmp_path}')
