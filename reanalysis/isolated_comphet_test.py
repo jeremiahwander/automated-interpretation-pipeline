@@ -76,33 +76,35 @@ def extract_comp_het_details(
 
     logging.info('Collecting all variant pairs')
 
+    logging.info(f"{ch_matrix.select_cols('hets').col.collect()=}")
+
     # iterate over the hail table rows
     # find all variant pair permutations which aren't both class 4
-    for row in ch_matrix.select_cols('hets').col.collect():
+    #for row in ch_matrix.select_cols('hets').col.collect():
 
-        # prepare a summary dict for this sample
-        sample_dict = {}
+    #    # prepare a summary dict for this sample
+    #    sample_dict = {}
 
-        # iterate over all the `gene: [var1, var2]` structures
-        for gene, variants in dict(row.hets).items():
+    #    # iterate over all the `gene: [var1, var2]` structures
+    #    for gene, variants in dict(row.hets).items():
 
-            # assess each possible variant pairing
-            for var1, var2 in permutations(variants, 2):
+    #        # assess each possible variant pairing
+    #        for var1, var2 in permutations(variants, 2):
 
-                # skip if both are class 4 only - not valuable pairing
-                if var1.category_4_only == 1 and var2.category_4_only == 1:
-                    continue
+    #            # skip if both are class 4 only - not valuable pairing
+    #            if var1.category_4_only == 1 and var2.category_4_only == 1:
+    #                continue
 
-                # pair the string transformation
-                sample_dict.setdefault(gene, {}).setdefault(
-                    transform_variant_string(var1), []
-                ).append(transform_variant_string(var2))
+    #            # pair the string transformation
+    #            sample_dict.setdefault(gene, {}).setdefault(
+    #                transform_variant_string(var1), []
+    #            ).append(transform_variant_string(var2))
 
-        # if we found comp hets, add the content for this sample
-        if len(sample_dict) > 0:
-            compound_hets[row.s] = sample_dict
+    #    # if we found comp hets, add the content for this sample
+    #    if len(sample_dict) > 0:
+    #        compound_hets[row.s] = sample_dict
 
-    return compound_hets
+    #return compound_hets
 
 
 def main(mt_in: str, out_json: str):
@@ -123,14 +125,15 @@ def main(mt_in: str, out_json: str):
     matrix = hl.read_matrix_table(mt_in)
 
     # parse out the compound het details (after pulling gene_id above)
-    comp_het_details = extract_comp_het_details(matrix=matrix)
+    #comp_het_details = extract_comp_het_details(matrix=matrix)
+    extract_comp_het_details(matrix=matrix)
 
     # transform the vcf output path into a json path
-    out_json = f'{out_json.split(".", maxsplit=1)[0]}.json'
+    #out_json = f'{out_json.split(".", maxsplit=1)[0]}.json'
 
     # and write the comp-het JSON file
-    serialised_obj = json.dumps(comp_het_details, indent=True, default=str)
-    AnyPath(out_json).write_text(serialised_obj)
+    #serialised_obj = json.dumps(comp_het_details, indent=True, default=str)
+    #AnyPath(out_json).write_text(serialised_obj)
 
 
 if __name__ == '__main__':
