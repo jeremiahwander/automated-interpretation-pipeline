@@ -11,7 +11,7 @@ import hail as hl
 from cpg_utils.hail import init_batch, output_path
 
 
-def extract_comp_het_details(matrix: hl.MatrixTable) -> None
+def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
     logging.info('Extracting out the compound-het variant pairs')
 
     # set a new group of values as the key, so that we can collect on them easily
