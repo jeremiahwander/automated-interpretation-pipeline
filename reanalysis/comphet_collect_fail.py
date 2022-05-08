@@ -20,7 +20,7 @@ def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
     logging.info('Extracting out the compound-het variant pairs')
 
     # set a new group of values as the key, so that we can collect on them easily
-    ch_matrix = matrix.key_rows_by(matrix.locus, matrix.alleles, matrix.category_4_only)
+    ch_matrix = matrix.key_rows_by(matrix.locus, matrix.alleles, matrix.support_only)
 
     ch_matrix = ch_matrix.select_cols(
         hets=hl.agg.group_by(
