@@ -19,16 +19,16 @@ def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
     """
     logging.info('Extracting out the compound-het variant pairs')
 
-    ch_matrix = ch_matrix.select_cols(
+    matrix = matrix.select_cols(
         hets=hl.agg.group_by(
-            ch_matrix.info.gene_id,
-            hl.agg.filter(ch_matrix.is_het, hl.agg.collect(ch_matrix.row_key)),
+            matrix.info.gene_id,
+            hl.agg.filter(matrix.is_het, hl.agg.collect(matrix.row_key)),
         )
     )
 
-    tmp_path = output_path('leo_test_ch_matrix_hets', 'tmp')
+    tmp_path = output_path('leo_test_matrix_hets', 'tmp')
     logging.info(f'Checkpointing to {tmp_path}')
-    ch_matrix = ch_matrix.checkpoint(tmp_path, overwrite=True)
+    matrix = matrix.checkpoint(tmp_path, overwrite=True)
 
 
 def main(mt_in: str):
