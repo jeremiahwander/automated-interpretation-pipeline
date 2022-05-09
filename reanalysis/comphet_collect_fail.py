@@ -7,7 +7,7 @@ mt = hl.read_matrix_table('gs://cpg-acute-care-test/leo-oom-debug/gene_id.mt')
 
 mt = mt.select_cols(
     hets=hl.agg.group_by(
-        mt.info.gene_id,
+        mt.gene_id,
         hl.agg.filter(mt.is_het, hl.agg.collect(mt.row_key)),
     )
 )
