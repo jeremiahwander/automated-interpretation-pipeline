@@ -3,7 +3,7 @@ from cpg_utils.hail_batch import init_batch
 
 init_batch()
 
-mt = hl.read_matrix_table('gs://cpg-acute-care-test/leo-oom-debug/sanitized.mt')
+mt = hl.read_matrix_table('gs://cpg-acute-care-test/leo-oom-debug/random.mt')
 
 mt = mt.select_cols(
     hets=hl.agg.group_by(
