@@ -22,6 +22,10 @@ def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
     # set a new group of values as the key, so that we can collect on them easily
     ch_matrix = matrix.key_rows_by(matrix.locus, matrix.alleles, matrix.support_only)
 
+    tmp_path = output_path('leo_test_ch_matrix_hets_rekeyed', 'tmp')
+    logging.info(f'(1) Checkpointing to {tmp_path}')
+    ch_matrix = ch_matrix.checkpoint(tmp_path, overwrite=True)
+
     ch_matrix = ch_matrix.select_cols(
         hets=hl.agg.group_by(
             ch_matrix.info.gene_id,
@@ -30,7 +34,7 @@ def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
     )
 
     tmp_path = output_path('leo_test_ch_matrix_hets', 'tmp')
-    logging.info(f'Checkpointing to {tmp_path}')
+    logging.info(f'(2) Checkpointing to {tmp_path}')
     ch_matrix = ch_matrix.checkpoint(tmp_path, overwrite=True)
 
 
