@@ -1,8 +1,7 @@
 import asyncio
-import hailtop.batch as hb
 import hail as hl
 
-def run():
+if __name__ == '__main__':
     BILLING_PROJECT = 'test'
     REMOTE_TMPDIR = 'gs://leo-tmp-au/batch-tmp'
 
@@ -24,10 +23,4 @@ def run():
     )
 
     mt.write('gs://leo-tmp-au/leo-oom-debug/out.mt', overwrite=True)
-
-if __name__ == '__main__':
-    batch = hb.Batch()
-    job = batch.new_python_job()
-    job.ball(run)
-    batch.run()
 
