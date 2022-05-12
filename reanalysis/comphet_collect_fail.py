@@ -3,7 +3,7 @@ from cpg_utils.hail_batch import init_batch
 
 init_batch()
 
-mt = hl.read_matrix_table('gs://cpg-acute-care-test/leo-oom-debug/minimal.mt')
+mt = hl.read_matrix_table('gs://leo-tmp-au/leo-oom-debug/minimal.mt')
 
 mt = mt.select_cols(
     hets=hl.agg.group_by(
@@ -12,4 +12,4 @@ mt = mt.select_cols(
     )
 )
 
-mt.write('gs://cpg-acute-care-test/leo-oom-debug/out.mt', overwrite=True)
+mt.write('gs://leo-tmp-au/leo-oom-debug/out.mt', overwrite=True)
