@@ -5,7 +5,9 @@ if __name__ == '__main__':
     REMOTE_TMPDIR = 'gs://leo-tmp-au/batch-tmp'
 
     service_backend = hb.ServiceBackend(
-        billing_project=BILLING_PROJECT, remote_tmpdir=REMOTE_TMPDIR
+        billing_project=BILLING_PROJECT,
+        remote_tmpdir=REMOTE_TMPDIR,
+        jar_url='gs://hail-test-0d3f214ff5/leonhardgruenschloss/jars/11b4a55862da39b90f895191cc44bd32dd92a046.jar',
     )
 
     batch = hb.Batch(name='oom-heap-dump', backend=service_backend)
