@@ -10,7 +10,7 @@ if __name__ == '__main__':
             default_reference='GRCh38',
             billing_project=BILLING_PROJECT,
             remote_tmpdir=REMOTE_TMPDIR,
-            driver_cores=8,
+            #driver_cores=8,
         )
     )
 
