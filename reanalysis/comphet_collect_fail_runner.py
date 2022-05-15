@@ -1,8 +1,8 @@
 import hailtop.batch as hb
 
 if __name__ == '__main__':
-    #BILLING_PROJECT = 'test'
-    BILLING_PROJECT = 'leonhardgruenschloss-trial'
+    BILLING_PROJECT = 'test'
+    #BILLING_PROJECT = 'leonhardgruenschloss-trial'
     REMOTE_TMPDIR = 'gs://leo-tmp-au/batch-tmp'
 
     service_backend = hb.ServiceBackend(billing_project=BILLING_PROJECT, remote_tmpdir=REMOTE_TMPDIR)
