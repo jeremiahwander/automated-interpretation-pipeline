@@ -2,8 +2,8 @@ import asyncio
 import hail as hl
 
 if __name__ == '__main__':
-    BILLING_PROJECT = 'test'
-    #BILLING_PROJECT = 'leonhardgruenschloss-trial'
+    #BILLING_PROJECT = 'test'
+    BILLING_PROJECT = 'leonhardgruenschloss-trial'
     REMOTE_TMPDIR = 'gs://leo-tmp-au/batch-tmp'
 
     asyncio.get_event_loop().run_until_complete(
