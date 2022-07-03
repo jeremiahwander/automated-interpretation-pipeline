@@ -8,10 +8,13 @@ from argparse import ArgumentParser
 
 import hail as hl
 
-from cpg_utils.hail import init_batch, output_path
+from cpg_utils.hail_batch import init_batch, output_path
 
 
 def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
+    """
+    docstring
+    """
     logging.info('Extracting out the compound-het variant pairs')
 
     # set a new group of values as the key, so that we can collect on them easily
@@ -26,14 +29,13 @@ def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
 
     tmp_path = output_path('leo_test_ch_matrix_hets', 'tmp')
     logging.info(f'Checkpointing to {tmp_path}')
-    ch_matrix = ch_matrix.checkpoint(tmp_path, overwrite=True)
+    ch_matrix.write(tmp_path, overwrite=True)
 
 
-def main(mt_in: str, out_json: str):
+def main(mt_in: str):
     """
 
     :param mt_in:
-    :param out_json:
     :return:
     """
 
@@ -47,6 +49,7 @@ def main(mt_in: str, out_json: str):
     matrix = hl.read_matrix_table(mt_in)
     extract_comp_het_details(matrix=matrix)
 
+
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.INFO,
@@ -56,16 +59,6 @@ if __name__ == '__main__':
     )
 
     parser = ArgumentParser()
-    parser.add_argument(
-        '--mt_input',
-        required=True,
-        help='path to the matrix table to ingest',
-    )
-    parser.add_argument(
-        '--out_json', type=str, required=True, help='VCF path to export results'
-    )
+    parser.add_argument('--mt_input', required=True, help='path to the matrix table')
     args = parser.parse_args()
-    main(
-        mt_in=args.mt_input,
-        out_json=args.out_json,
-    )
+    main(mt_in=args.mt_input)
