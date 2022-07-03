@@ -52,6 +52,7 @@ def main(matrix_path: str):
     labelling_command = f'python3 {COMP_HET_SCRIPT} --mt_input {matrix_path} '
 
     labelling_job.command(labelling_command)
+    labelling_job.image(get_config()['workflow']['driver_image'])
     copy_common_env(labelling_job)
 
     batch.run(wait=False)
