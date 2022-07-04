@@ -9,4 +9,4 @@ analysis-runner \
   -o reanalysis/comp_het_test \
   --access-level test \
   reanalysis/isolated_runner.py \
-    --matrix_path gs://cpg-acute-care-test/leo-oom-debug/minimal.mt
+    --matrix_path gs://cpg-acute-care-test/leo-oom-debug/gene_id.mt
