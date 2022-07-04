@@ -76,6 +76,8 @@ def main(
         default_timeout=1000,
     )
 
+    local_ped = batch.read_input(ped)
+
     # create a new job
     comp_job = batch.new_job(name='Run Comparison')
 
@@ -108,7 +110,7 @@ def main(
         f'python3 {COMPARISON_SCRIPT} '
         f'--results {results} '
         f'--seqr {seqr} '
-        f'--ped {ped} '
+        f'--ped {local_ped} '
         f'--vcf {vcf_in_batch["vcf.bgz"]} '
         f'--mt {mt} '
         f'--config {config} '
