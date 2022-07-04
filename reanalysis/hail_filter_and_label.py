@@ -500,7 +500,7 @@ def filter_by_consequence(
 
 
 def vep_struct_to_csq(
-    vep_expr: hl.expr.StructExpression, csq_fields: str
+    vep_expr: hl.expr.StructExpression, csq_fields: list[str]
 ) -> hl.expr.ArrayExpression:
     """
     Taken shamelessly from the gnomad library source code
@@ -517,7 +517,6 @@ def vep_struct_to_csq(
     :param csq_fields: | delimited fields to include in the CSQ (in that order)
     :return: The corresponding CSQ strings
     """
-    _csq_fields = [f.lower() for f in csq_fields.split('|')]
 
     def get_csq_from_struct(
         element: hl.expr.StructExpression, feature_type: str
@@ -578,7 +577,7 @@ def vep_struct_to_csq(
         )
 
         return hl.delimit(
-            [hl.or_else(hl.str(fields.get(f, '')), '') for f in _csq_fields], '|'
+            [hl.or_else(hl.str(fields.get(f, '')), '') for f in csq_fields], '|'
         )
 
     csq = hl.empty_array(hl.tstr)
@@ -778,10 +777,9 @@ def main(
     matrix = filter_on_quality_flags(matrix)
 
     # running global quality filter steps
-    if matrix.count_cols() >= hail_config['min_samples_to_ac_filter']:
-        matrix = filter_matrix_by_ac(
-            matrix=matrix, ac_threshold=hail_config['ac_threshold']
-        )
+    matrix = filter_matrix_by_ac(
+        matrix=matrix, ac_threshold=hail_config['ac_threshold']
+    )
 
     matrix = filter_to_well_normalised(matrix)
     matrix = filter_by_ab_ratio(matrix)
