@@ -6,7 +6,10 @@ This is designed to recognise flags in the format 'AIP training: Confidence'
 
 See relevant documentation for a description of the algorithm used
 """
+
+
 import json
+import os
 from collections import defaultdict
 from csv import DictReader
 from enum import Enum
@@ -151,6 +154,7 @@ class CommonFormatResult:
 
 
 CommonDict = dict[str, list[CommonFormatResult]]
+LoggingDict = dict[str, dict[str, int]]
 ReasonDict = dict[str, list[tuple[CommonFormatResult, list[str]]]]
 
 
@@ -205,19 +209,15 @@ def common_format_from_seqr(seqr: str, affected: list[str]) -> CommonDict:
         ]
 
         for entry in seqr_parser:
-
-            # get all valid tags
             tags = [
                 Confidence(tag)
                 for tag in entry['tags'].split('|')
                 if tag in VALID_VALUES
             ]
 
-            # no relevant tags, not interested...
             if len(tags) == 0:
                 continue
 
-            # create a variant object
             variant_obj = CommonFormatResult(
                 entry['chrom'],
                 int(entry['pos']),
@@ -227,7 +227,6 @@ def common_format_from_seqr(seqr: str, affected: list[str]) -> CommonDict:
             )
 
             # seqr has no notion of 'proband', so add for each affected
-            # see README for discussion
             for index, value in enumerate(sample_cols, 1):
                 if (
                     entry[value] in affected
@@ -235,12 +234,14 @@ def common_format_from_seqr(seqr: str, affected: list[str]) -> CommonDict:
                 ):
                     sample_dict[entry[value]].append(variant_obj)
 
-    logging.info(f'Variants from Seqr digest: {sample_dict}')
+    # logging.info(f'Variants from Seqr digest: {sample_dict}')
 
     return sample_dict
 
 
-def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDict:
+def find_missing(
+    aip_results: CommonDict, seqr_results: CommonDict
+) -> tuple[CommonDict, LoggingDict]:
     """
     1 way comparison - find all results present in Seqr, and missing from AIP
     This is a check for False Negatives
@@ -254,22 +255,21 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
     seqr_samples = set(seqr_results.keys())
     aip_samples = set(aip_results.keys())
 
+    # start a logging dict
+    logging_dict: LoggingDict = {
+        key: defaultdict(int) for key in seqr_samples.union(aip_samples)
+    }
+
     common_samples = aip_samples.intersection(seqr_samples)
 
-    missing_samples = seqr_samples - common_samples
-    if len(missing_samples) > 0:
-        logging.error(
-            f'Samples completely missing from AIP results: '
-            f'{", ".join(missing_samples)}'
-        )
+    # for each of those missing samples, add all variants
+    for miss_sample in seqr_samples - common_samples:
+        discrepancies[miss_sample] = seqr_results[miss_sample]
+        logging_dict[miss_sample]['sample_seqr_only'] = len(seqr_results[miss_sample])
 
-        # for each of those missing samples, add all variants
-        for miss_sample in missing_samples:
-            discrepancies[miss_sample] = seqr_results[miss_sample]
-            logging.error(
-                f'Sample {miss_sample}: '
-                f'{len(seqr_results[miss_sample])} missing variant(s)'
-            )
+    # add aip-only into the logging dictionary
+    for miss_sample in common_samples - seqr_samples:
+        logging_dict[miss_sample]['sample_aip_only'] = len(aip_results[miss_sample])
 
     for sample in common_samples:
 
@@ -280,25 +280,16 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
             if variant not in aip_results[sample]
         ]
 
-        # only populate the index if missing variants found
+        # log!
+        logging_dict[sample]['seqr_not_aip'] = len(sample_discrepancies)
+        logging_dict[sample]['variants_matched'] = len(seqr_results) - len(
+            sample_discrepancies
+        )
+
         if sample_discrepancies:
             discrepancies[sample] = sample_discrepancies
 
-        # log the number of matches
-        matched = len(
-            [
-                variant
-                for variant in seqr_results[sample]
-                if variant in aip_results[sample]
-            ]
-        )
-
-        logging.info(f'Sample {sample} - {matched} matched variant(s)')
-        logging.info(
-            f'Sample {sample} - {len(sample_discrepancies)} missing variant(s)'
-        )
-
-    return discrepancies
+    return discrepancies, logging_dict
 
 
 def find_affected_samples(pedigree: Ped) -> list[str]:
@@ -390,9 +381,8 @@ def run_ac_check(matrix: hl.MatrixTable, config: dict[str, Any]) -> list[str]:
     """
 
     # this test is only run conditionally
-    if matrix.count_cols() >= config['min_samples_to_ac_filter']:
-        if filter_matrix_by_ac(matrix, config['ac_threshold']).count_rows() == 0:
-            return ['QC: AC too high in joint call']
+    if filter_matrix_by_ac(matrix, config['ac_threshold']).count_rows() == 0:
+        return ['QC: AC too high in joint call']
     return []
 
 
@@ -779,7 +769,13 @@ def main(
     seqr_results = common_format_from_seqr(seqr=seqr, affected=affected)
 
     # compare the results of the two datasets
-    discrepancies = find_missing(seqr_results=seqr_results, aip_results=result_dict)
+    discrepancies, logging_dict = find_missing(
+        seqr_results=seqr_results, aip_results=result_dict
+    )
+
+    with AnyPath(os.path.join(output, 'logging.json')).open('w') as handle:
+        json.dump(logging_dict, handle, default=str, indent=4)
+
     if not discrepancies:
         logging.info('All variants resolved!')
         sys.exit(0)
@@ -831,7 +827,7 @@ def main(
 
     # write the output to a file as JSON
     logging.info(f'Writing output JSON to {output}')
-    with AnyPath(output).open('w') as handle:
+    with AnyPath(os.path.join(output, 'comparison_output.json')).open('w') as handle:
         json.dump(untiered, handle, default=str, indent=4)
 
 
