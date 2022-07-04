@@ -19,8 +19,8 @@ def extract_comp_het_details(matrix: hl.MatrixTable) -> None:
 
     ch_matrix = matrix.select_cols(
         hets=hl.agg.group_by(
-            matrix.info.gene_id,
-            hl.agg.filter(matrix.GT.is_het(), hl.agg.collect(matrix.row_key)),
+            matrix.gene_id,
+            hl.agg.filter(matrix.is_het, hl.agg.collect(matrix.row_key)),
         )
     )
 
