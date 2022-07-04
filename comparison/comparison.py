@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 compares a Seqr file against results of a previous AIP run
 

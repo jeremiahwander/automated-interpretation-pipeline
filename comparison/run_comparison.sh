@@ -7,7 +7,7 @@ analysis-runner \
     --description "run AIP comparison MVP" \
     -o "reanalysis/comparison" \
     --access-level test \
-    reanalysis/comparison_wrapper.py \
+    comparison/comparison_wrapper.py \
         --results gs://cpg-acute-care-test/reanalysis/2022-07-01/summary_results.json \
         --seqr gs://cpg-acute-care-test/reanalysis/comparison/seqr_acute_care_tags.tsv \
         --mt gs://cpg-acute-care-main/mt/e51f4fb948f27a4130f4a56b32fd1ca8e7c0ad_867-acute-care.mt \
