@@ -17,6 +17,8 @@ from typing import Any
 import logging
 import sys
 from argparse import ArgumentParser
+from itertools import permutations
+import json
 
 import hail as hl
 from peddy import Ped
@@ -389,6 +391,67 @@ def annotate_category_support(
             )
         )
     )
+
+
+def extract_comp_het_details(
+    matrix: hl.MatrixTable,
+) -> dict[str, dict[str, dict[str, list[str]]]]:
+    """
+    takes the matrix table, and finds compound-hets per sample
+    based on the gene name only
+    return format is a nested dictionary:
+    Sample:
+        Gene:
+            Var1: [Var2, VarN],
+            ..
+        ..
+    ..
+    :param matrix:
+    """
+
+    logging.info('Extracting out the compound-het variant pairs')
+
+    # set a new group of values as the key, so that we can collect on them easily
+    ch_matrix = matrix.key_rows_by(matrix.locus, matrix.alleles, matrix.support_only)
+    ch_matrix = ch_matrix.annotate_cols(
+        hets=hl.agg.group_by(
+            ch_matrix.info.gene_id,
+            hl.agg.filter(ch_matrix.GT.is_het(), hl.agg.collect(ch_matrix.row_key)),
+        )
+    )
+
+    # extract those possible compound het pairs out as a non-Hail structure
+    compound_hets = {}
+
+    logging.info('Collecting all variant pairs')
+
+    # iterate over the hail table rows
+    # find all variant pair permutations which aren't both class 4
+    for row in ch_matrix.select_cols('hets').col.collect():
+
+        # prepare a summary dict for this sample
+        sample_dict = {}
+
+        # iterate over all the `gene: [var1, var2]` structures
+        for gene, variants in dict(row.hets).items():
+
+            # assess each possible variant pairing
+            for var1, var2 in permutations(variants, 2):
+
+                # skip if both are support only - not a valuable pairing
+                if var1.support_only == 1 and var2.support_only == 1:
+                    continue
+
+                # pair the string transformation
+                sample_dict.setdefault(gene, {}).setdefault(
+                    transform_variant_string(var1), []
+                ).append(transform_variant_string(var2))
+
+        # if we found comp hets, add the content for this sample
+        if len(sample_dict) > 0:
+            compound_hets[row.s] = sample_dict
+
+    return compound_hets
 
 
 def transform_variant_string(locus_details: hl.Struct) -> str:
@@ -823,14 +886,7 @@ def main(mt: str, panelapp: str, config_path: str, plink: str):
     matrix = annotate_category_5(matrix, config=hail_config)
     matrix = annotate_category_4(matrix, config=hail_config, plink_family_file=plink)
     matrix = annotate_category_support(matrix, hail_config)
-
     matrix = filter_to_categorised(matrix)
-    matrix = checkpoint_and_repartition(
-        matrix,
-        checkpoint_root=checkpoint_root,
-        checkpoint_num=checkpoint_number,
-        extra_logging='after filtering to categorised only',
-    )
 
     # obtain the massive CSQ string using method stolen from the Broad's Gnomad library
     # also take the single gene_id (from the exploded attribute)
@@ -840,8 +896,33 @@ def main(mt: str, panelapp: str, config_path: str, plink: str):
                 matrix.vep, csq_fields=config_dict['variant_object'].get('csq_string')
             ),
             gene_id=matrix.geneIds,
+            support_only=hl.if_else(
+                (matrix.info.Category1 == 0)
+                & (matrix.info.Category2 == 0)
+                & (matrix.info.Category3 == 0)
+                & (matrix.info.Category4 == 'missing')
+                & (matrix.info.CategorySupport == 1)
+                & (matrix.info.Category5 == 0),
+                ONE_INT,
+                MISSING_INT,
+            ),
         )
     )
+
+    matrix = checkpoint_and_repartition(
+        matrix,
+        checkpoint_root=checkpoint_root,
+        checkpoint_num=checkpoint_number,
+        extra_logging='after filtering to categorised only',
+    )
+
+    comp_het_details = extract_comp_het_details(matrix=matrix)
+
+    # and write the comp-het JSON file
+    with AnyPath(output_path('compound_hets.json')).open('w') as handle:
+        json.dump(comp_het_details, handle, indent=True, default=str)
+
+    logging.info('comp-het data written to cloud')
 
     write_matrix_to_vcf(
         matrix=matrix, additional_header=hail_config.get('csq_header_file')

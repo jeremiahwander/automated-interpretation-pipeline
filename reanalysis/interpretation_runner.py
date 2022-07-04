@@ -20,7 +20,7 @@ import os
 import sys
 
 import click
-from cloudpathlib import AnyPath, CloudPath
+from cloudpathlib import AnyPath
 import hailtop.batch as hb
 
 from cpg_utils.config import get_config
@@ -39,7 +39,7 @@ from cpg_utils.hail_batch import (
 )
 
 import annotation
-from utils import check_good_value, read_json_from_path, FileTypes, identify_file_type
+from utils import FileTypes, identify_file_type
 from vep.jobs import vep_jobs, SequencingType
 
 
@@ -317,9 +317,6 @@ def handle_results_job(
     '--panel_genes', help='JSON Gene list for use in analysis', required=False
 )
 @click.option(
-    '--singletons', help='location of a plink file for the singletons', required=False
-)
-@click.option(
     '--skip_annotation',
     help='if set, a MT with appropriate annotations can be provided',
     is_flag=True,
@@ -331,7 +328,6 @@ def main(
     plink_file: str,
     panelapp_version: str | None = None,
     panel_genes: str | None = None,
-    singletons: str | None = None,
     skip_annotation: bool = False,
 ):
     """
@@ -342,7 +338,6 @@ def main(
     :param plink_file:
     :param panel_genes:
     :param panelapp_version:
-    :param singletons:
     :param skip_annotation:
     """
 
@@ -352,30 +347,6 @@ def main(
         )
 
     logging.info('Starting the reanalysis batch')
-
-    config_dict = read_json_from_path(config_json)
-
-    # create output paths with optional suffixes
-    vep_stage_tmp = output_path('vep_temp', check_good_value('tmp_suffix', config_dict))
-    vep_ht_tmp = output_path(
-        'vep_annotations.ht', check_good_value('tmp_suffix', config_dict)
-    )
-    # separate paths for familial and singleton analysis
-    output_dict = {
-        'default': {
-            'web_html': output_path(
-                'summary_output.html', check_good_value('web_suffix', config_dict)
-            ),
-            'results': output_path('summary_results.json'),
-        },
-        'singletons': {
-            'web_html': output_path(
-                'singleton_output.html', check_good_value('web_suffix', config_dict)
-            ),
-            'results': output_path('singleton_results.json'),
-        },
-    }
-
     service_backend = hb.ServiceBackend(
         billing_project=get_config()['hail']['billing_project'],
         remote_tmpdir=remote_tmpdir(),
@@ -413,80 +384,28 @@ def main(
             # overwrite the expected annotation output path
             global ANNOTATED_MT  # pylint: disable=W0603
             ANNOTATED_MT = input_path
-
         else:
-            prior_job = mt_to_vcf(
-                batch=batch, input_file=input_path, config=config_dict
-            )
-            # overwrite input path with file we just created
-            input_path = INPUT_AS_VCF
-
-    # ------------------------------------- #
-    # split the VCF, and annotate using VEP #
-    # ------------------------------------- #
-    if not CloudPath(ANNOTATED_MT).exists():
-        # need to run the annotation phase
-        # uses default values from RefData
-        annotation_jobs = annotate_vcf(
-            input_path, batch=batch, vep_temp=vep_stage_tmp, vep_out=vep_ht_tmp
-        )
-
-        # if convert-to-VCF job exists, assign as an annotation dependency
-        if prior_job:
-            for job in annotation_jobs:
-                job.depends_on(prior_job)
-
-        # apply annotations
-        prior_job = annotated_mt_from_ht_and_vcf(
-            input_vcf=input_path, batch=batch, job_attrs={}, vep_ht=vep_ht_tmp
-        )
-        prior_job.depends_on(*annotation_jobs)
+            raise Exception('need some annotated input')
+    else:
+        raise Exception('need some annotated input')
 
     # -------------------------------- #
     # query panelapp for panel details #
     # -------------------------------- #
     if not AnyPath(PANELAPP_JSON_OUT).exists():
-        prior_job = handle_panelapp_job(
+        _prior_job = handle_panelapp_job(
             batch=batch,
             gene_list=panel_genes,
             prev_version=panelapp_version,
             prior_job=prior_job,
         )
-
-    # ----------------------- #
-    # run hail categorisation #
-    # ----------------------- #
-    if not AnyPath(HAIL_VCF_OUT).exists():
-        logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-        prior_job = handle_hail_filtering(
-            batch=batch,
-            config=config_json,
-            prior_job=prior_job,
-            plink_file=pedigree_in_batch,
-        )
-
-    # read that VCF into the batch as a local file
-    labelled_vcf_in_batch = batch.read_input_group(
-        **{'vcf.bgz': HAIL_VCF_OUT, 'vcf.bgz.tbi': HAIL_VCF_OUT + '.tbi'}
+    _prior_job = handle_hail_filtering(
+        batch=batch,
+        config=config_json,
+        prior_job=prior_job,
+        plink_file=pedigree_in_batch,
     )
 
-    # for dev purposes - always run as default (family)
-    # if singleton VCF supplied, also run as singletons w/separate outputs
-    analysis_rounds = [(pedigree_in_batch, 'default')]
-    if singletons and AnyPath(singletons).exists():
-        pedigree_singletons = batch.read_input(singletons)
-        analysis_rounds.append((pedigree_singletons, 'singletons'))
-
-    for relationships, analysis_index in analysis_rounds:
-        logging.info(f'running analysis in {analysis_index} mode')
-        _results_job = handle_results_job(
-            batch=batch,
-            config=config_json,
-            labelled_vcf=labelled_vcf_in_batch['vcf.bgz'],
-            pedigree=relationships,
-            output_dict=output_dict[analysis_index],
-            prior_job=prior_job,
-        )
     batch.run(wait=False)
 
 
