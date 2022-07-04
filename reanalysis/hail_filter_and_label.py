@@ -26,7 +26,7 @@ from peddy import Ped
 from cloudpathlib import AnyPath
 from cpg_utils.hail_batch import init_batch, output_path
 
-from reanalysis.utils import check_good_value, read_json_from_path
+from reanalysis.utils import read_json_from_path
 
 
 # set some Hail constants
@@ -412,7 +412,9 @@ def extract_comp_het_details(
     logging.info('Extracting out the compound-het variant pairs')
 
     # set a new group of values as the key, so that we can collect on them easily
-    ch_matrix = matrix.key_rows_by(matrix.locus, matrix.alleles, matrix.support_only)
+    ch_matrix = matrix.key_rows_by(
+        matrix.locus, matrix.alleles, matrix.info.support_only
+    )
     ch_matrix = ch_matrix.annotate_cols(
         hets=hl.agg.group_by(
             ch_matrix.info.gene_id,
@@ -801,31 +803,17 @@ def main(mt: str, panelapp: str, config_path: str, plink: str):
     :param config_path: path to the config json
     :param plink: pedigree filepath in PLINK format
     """
+    print(f'ignoring: {panelapp}, {plink}')
 
     # initiate Hail with defined driver spec.
     init_batch(driver_cores=8, driver_memory='highmem')
-
-    # checkpoints should be kept independent
-    checkpoint_number = 0
 
     # get the run configuration JSON
     logging.info(f'Reading config dict from "{config_path}"')
     config_dict = read_json_from_path(config_path)
 
-    # get temp suffix from the config (can be None or missing)
-    checkpoint_root = output_path(
-        'hail_matrix.mt', check_good_value('tmp_suffix', config_dict)
-    )
-
     # find the config area specific to hail operations
     hail_config = config_dict.get('filter')
-
-    # read the parsed panelapp data
-    logging.info(f'Reading PanelApp data from "{panelapp}"')
-    panelapp = read_json_from_path(panelapp)
-
-    # pull green and new genes from the panelapp data
-    green_expression, new_expression = green_and_new_from_panelapp(panelapp)
 
     logging.info(
         f'Starting Hail with reference genome "{hail_config.get("ref_genome")}"'
@@ -836,85 +824,6 @@ def main(mt: str, panelapp: str, config_path: str, plink: str):
         raise Exception(f'Input MatrixTable doesn\'t exist: {mt}')
 
     matrix = hl.read_matrix_table(mt)
-
-    # subset to currently considered samples
-    matrix = subselect_mt_to_pedigree(matrix, pedigree=plink)
-
-    logging.debug(
-        f'Loaded annotated MT from {mt}, size: {matrix.count_rows()}',
-    )
-
-    # filter out quality failures
-    matrix = filter_on_quality_flags(matrix)
-
-    # running global quality filter steps
-    matrix = filter_matrix_by_ac(matrix=matrix)
-    matrix = filter_to_well_normalised(matrix)
-    matrix = filter_by_ab_ratio(matrix)
-
-    matrix = checkpoint_and_repartition(
-        matrix,
-        checkpoint_root=checkpoint_root,
-        checkpoint_num=checkpoint_number,
-        extra_logging='after applying quality filters',
-    )
-
-    checkpoint_number = checkpoint_number + 1
-
-    matrix = extract_annotations(matrix)
-    matrix = filter_to_population_rare(matrix=matrix, config=hail_config)
-    matrix = split_rows_by_gene_and_filter_to_green(
-        matrix=matrix, green_genes=green_expression
-    )
-
-    matrix = checkpoint_and_repartition(
-        matrix,
-        checkpoint_root=checkpoint_root,
-        checkpoint_num=checkpoint_number,
-        extra_logging='after applying Rare & Green-Gene filters',
-    )
-
-    checkpoint_number = checkpoint_number + 1
-
-    # add Classes to the MT
-    # current logic is to apply 1, 2, 3, and 5, then 4 (de novo)
-    # for cat. 4, pre-filter the variants by tx-consequential or C5==1
-    logging.info('Applying categories')
-    matrix = annotate_category_1(matrix)
-    matrix = annotate_category_2(matrix, config=hail_config, new_genes=new_expression)
-    matrix = annotate_category_3(matrix, config=hail_config)
-    matrix = annotate_category_5(matrix, config=hail_config)
-    matrix = annotate_category_4(matrix, config=hail_config, plink_family_file=plink)
-    matrix = annotate_category_support(matrix, hail_config)
-    matrix = filter_to_categorised(matrix)
-
-    # obtain the massive CSQ string using method stolen from the Broad's Gnomad library
-    # also take the single gene_id (from the exploded attribute)
-    matrix = matrix.annotate_rows(
-        info=matrix.info.annotate(
-            CSQ=vep_struct_to_csq(
-                matrix.vep, csq_fields=config_dict['variant_object'].get('csq_string')
-            ),
-            gene_id=matrix.geneIds,
-            support_only=hl.if_else(
-                (matrix.info.Category1 == 0)
-                & (matrix.info.Category2 == 0)
-                & (matrix.info.Category3 == 0)
-                & (matrix.info.Category4 == 'missing')
-                & (matrix.info.CategorySupport == 1)
-                & (matrix.info.Category5 == 0),
-                ONE_INT,
-                MISSING_INT,
-            ),
-        )
-    )
-
-    matrix = checkpoint_and_repartition(
-        matrix,
-        checkpoint_root=checkpoint_root,
-        checkpoint_num=checkpoint_number,
-        extra_logging='after filtering to categorised only',
-    )
 
     comp_het_details = extract_comp_het_details(matrix=matrix)
 
