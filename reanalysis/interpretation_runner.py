@@ -34,19 +34,14 @@ from cpg_utils.hail_batch import (
     authenticate_cloud_credentials_in_job,
     copy_common_env,
     output_path,
-    query_command,
     remote_tmpdir,
 )
 
-import annotation
 from vep.jobs import vep_jobs, SequencingType
 
 
 # static paths to write outputs
 INPUT_AS_VCF = output_path('prior_to_annotation.vcf.bgz')
-
-# phases of annotation
-ANNOTATED_MT = output_path('annotated_variants.mt')
 
 # panelapp query results
 PANELAPP_JSON_OUT = output_path('panelapp_137_data.json')
@@ -163,37 +158,6 @@ def annotate_vcf(
     )
 
 
-def annotated_mt_from_ht_and_vcf(
-    input_vcf: str,
-    batch: hb.Batch,
-    vep_ht: str,
-    job_attrs: dict | None = None,
-) -> hb.batch.job.Job:
-    """
-    apply the HT of annotations to the VCF, save as MT
-    :return:
-    """
-    apply_anno_job = batch.new_job('HT + VCF = MT', job_attrs)
-
-    copy_common_env(apply_anno_job)
-    apply_anno_job.image(DEFAULT_IMAGE)
-
-    cmd = query_command(
-        annotation,
-        annotation.apply_annotations.__name__,
-        input_vcf,
-        vep_ht,
-        ANNOTATED_MT,
-        setup_gcp=True,
-        hail_billing_project=get_config()['hail']['billing_project'],
-        hail_bucket=str(remote_tmpdir()),
-        default_reference='GRCh38',
-        packages=['seqr-loader==1.2.5'],
-    )
-    apply_anno_job.command(cmd)
-    return apply_anno_job
-
-
 def handle_panelapp_job(
     batch: hb.Batch,
     gene_list: str | None = None,
@@ -229,6 +193,7 @@ def handle_hail_filtering(
     batch: hb.Batch,
     config: str,
     plink_file: str,
+    mt: str,
     prior_job: hb.batch.job.Job | None = None,
 ) -> hb.batch.job.BashJob:
     """
@@ -239,6 +204,7 @@ def handle_hail_filtering(
     :param config:
     :param plink_file:
     :param prior_job:
+    :param mt:
     :return:
     """
 
@@ -249,7 +215,7 @@ def handle_hail_filtering(
     labelling_command = (
         f'pip install . && '
         f'python3 {HAIL_FILTER} '
-        f'--mt {ANNOTATED_MT} '
+        f'--mt {mt} '
         f'--panelapp {PANELAPP_JSON_OUT} '
         f'--config_path {config} '
         f'--plink {plink_file}'
@@ -346,6 +312,7 @@ def main(input_path: str, config_json: str, plink_file: str):
         config=config_json,
         prior_job=prior_job,
         plink_file=pedigree_in_batch,
+        mt=input_path,
     )
 
     batch.run(wait=False)
