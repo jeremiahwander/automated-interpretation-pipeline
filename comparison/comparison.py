@@ -21,12 +21,13 @@ import sys
 from typing import Any
 
 from argparse import ArgumentParser
+
 from cloudpathlib import AnyPath
 from cyvcf2 import VCFReader
 import hail as hl
-from peddy import Ped
+from peddy import Ped, PHENOTYPE
 
-from cpg_utils.hail_batch import init_batch
+# from cpg_utils.hail_batch import init_batch
 
 from reanalysis.hail_filter_and_label import (
     extract_annotations,
@@ -35,7 +36,7 @@ from reanalysis.hail_filter_and_label import (
     filter_on_quality_flags,
     filter_to_population_rare,
     filter_to_well_normalised,
-    green_and_new_from_panelapp,
+    # green_and_new_from_panelapp,
     CONFLICTING,
     LOFTEE_HC,
     PATHOGENIC,
@@ -301,7 +302,11 @@ def find_affected_samples(pedigree: Ped) -> list[str]:
     :param pedigree:
     :return:
     """
-    return [sam.sample_id for sam in pedigree.samples() if sam.affected]
+    return [
+        sam.sample_id
+        for sam in pedigree.samples()
+        if sam.affected == PHENOTYPE().AFFECTED
+    ]
 
 
 def check_in_vcf(vcf_path: str, variants: CommonDict) -> tuple[CommonDict, CommonDict]:
@@ -757,9 +762,11 @@ def main(
     :return:
     """
 
+    # make pylint go away
+    print(results, seqr, ped, vcf, mt, config, panel, output)
+
     # normalise data formats from AIP result file
     aip_json = read_json_from_path(results)
-    result_dict = common_format_from_results(results_dict=aip_json)
 
     # Peddy parsed Pedigree
     pedigree_digest = Ped(ped)
@@ -769,68 +776,69 @@ def main(
 
     # parse the Seqr results table, specifically targeting variants in probands
     seqr_results = common_format_from_seqr(seqr=seqr, affected=affected)
+    aip_results = common_format_from_results(results_dict=aip_json)
 
     # compare the results of the two datasets
-    discrepancies, logging_dict = find_missing(
-        seqr_results=seqr_results, aip_results=result_dict
+    _discrepancies, logging_dict = find_missing(
+        seqr_results=seqr_results, aip_results=aip_results
     )
 
     with AnyPath(os.path.join(output, 'logging.json')).open('w') as handle:
         json.dump(logging_dict, handle, default=str, indent=4)
 
-    if not discrepancies:
-        logging.info('All variants resolved!')
-        sys.exit(0)
-
-    # retain only the 'filter' index of the config file
-    config_dict = read_json_from_path(config)['filter']
-
-    # load and digest panel data
-    panel_dict = read_json_from_path(panel)
-    green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
-
-    # if we had discrepancies, bin into classified and misc.
-    in_vcf, not_in_vcf = check_in_vcf(vcf_path=vcf, variants=discrepancies)
-
-    # some logging content here
-    for sample in not_in_vcf:
-        logging.info(f'Sample: {sample}')
-        for variant in not_in_vcf[sample]:
-            logging.info(f'\tVariant {variant} missing from VCF')
-
-    # some logging content here
-    for sample in in_vcf:
-        logging.info(f'Sample: {sample}')
-        for variant in in_vcf[sample]:
-            logging.info(f'\tVariant {variant} requires MOI checking')
-
-    # if there were any variants missing from the VCF, attempt to find them in the MT
-    if len(not_in_vcf) == 0:
-        sys.exit(0)
-
-    # if we need to check the MT, start Hail Query
-    init_batch(driver_cores=8, driver_memory='highmem')
-
-    # read in the MT
-    matrix = hl.read_matrix_table(mt)
-
-    not_present, untiered = check_mt(
-        matrix=matrix,
-        variants=not_in_vcf,
-        config=config_dict,
-        green_genes=green_genes,
-        new_genes=new_genes,
-    )
-    if untiered:
-        logging.info(f'Untiered: {json.dumps(untiered, default=str, indent=4)}')
-
-    if not_present:
-        logging.info(f'Missing: {json.dumps(not_present, default=str, indent=4)}')
-
-    # write the output to a file as JSON
-    logging.info(f'Writing output JSON to {output}')
-    with AnyPath(os.path.join(output, 'comparison_output.json')).open('w') as handle:
-        json.dump(untiered, handle, default=str, indent=4)
+    # if not discrepancies:
+    #     logging.info('All variants resolved!')
+    #     sys.exit(0)
+    #
+    # # retain only the 'filter' index of the config file
+    # config_dict = read_json_from_path(config)['filter']
+    #
+    # # load and digest panel data
+    # panel_dict = read_json_from_path(panel)
+    # green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
+    #
+    # # if we had discrepancies, bin into classified and misc.
+    # in_vcf, not_in_vcf = check_in_vcf(vcf_path=vcf, variants=discrepancies)
+    #
+    # # some logging content here
+    # for sample in not_in_vcf:
+    #     logging.info(f'Sample: {sample}')
+    #     for variant in not_in_vcf[sample]:
+    #         logging.info(f'\tVariant {variant} missing from VCF')
+    #
+    # # some logging content here
+    # for sample in in_vcf:
+    #     logging.info(f'Sample: {sample}')
+    #     for variant in in_vcf[sample]:
+    #         logging.info(f'\tVariant {variant} requires MOI checking')
+    #
+    # # if there were any variants missing from the VCF, attempt to find them in the MT
+    # if len(not_in_vcf) == 0:
+    #     sys.exit(0)
+    #
+    # # if we need to check the MT, start Hail Query
+    # init_batch(driver_cores=8, driver_memory='highmem')
+    #
+    # # read in the MT
+    # matrix = hl.read_matrix_table(mt)
+    #
+    # not_present, untiered = check_mt(
+    #     matrix=matrix,
+    #     variants=not_in_vcf,
+    #     config=config_dict,
+    #     green_genes=green_genes,
+    #     new_genes=new_genes,
+    # )
+    # if untiered:
+    #     logging.info(f'Untiered: {json.dumps(untiered, default=str, indent=4)}')
+    #
+    # if not_present:
+    #     logging.info(f'Missing: {json.dumps(not_present, default=str, indent=4)}')
+    #
+    # # write the output to a file as JSON
+    # logging.info(f'Writing output JSON to {output}')
+    # with AnyPath(os.path.join(output, 'comparison_output.json')).open('w') as handle:
+    #     json.dump(untiered, handle, default=str, indent=4)
 
 
 if __name__ == '__main__':
