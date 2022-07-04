@@ -39,7 +39,6 @@ from cpg_utils.hail_batch import (
 )
 
 import annotation
-from utils import FileTypes, identify_file_type
 from vep.jobs import vep_jobs, SequencingType
 
 
@@ -310,35 +309,13 @@ def handle_results_job(
 )
 @click.option('--config_json', help='JSON dict of runtime settings', required=True)
 @click.option('--plink_file', help='Plink file path for the cohort', required=True)
-@click.option(
-    '--panelapp_version', help='compare current with this version', required=False
-)
-@click.option(
-    '--panel_genes', help='JSON Gene list for use in analysis', required=False
-)
-@click.option(
-    '--skip_annotation',
-    help='if set, a MT with appropriate annotations can be provided',
-    is_flag=True,
-    default=False,
-)
-def main(
-    input_path: str,
-    config_json: str,
-    plink_file: str,
-    panelapp_version: str | None = None,
-    panel_genes: str | None = None,
-    skip_annotation: bool = False,
-):
+def main(input_path: str, config_json: str, plink_file: str):
     """
     main method, which runs the full reanalysis process
 
     :param input_path: annotated input matrix table or VCF
     :param config_json:
     :param plink_file:
-    :param panel_genes:
-    :param panelapp_version:
-    :param skip_annotation:
     """
 
     if not AnyPath(input_path).exists():
@@ -364,41 +341,6 @@ def main(
 
     # set a first job in this batch
     prior_job = None
-
-    # -------------------------- #
-    # Convert MT to a VCF format #
-    # -------------------------- #
-    # determine the input type - if MT, decompose to VCF prior to annotation
-    input_file_type = identify_file_type(input_path)
-    assert input_file_type in [
-        FileTypes.VCF_GZ,
-        FileTypes.VCF_BGZ,
-        FileTypes.MATRIX_TABLE,
-    ], (
-        f'inappropriate input type provided: {input_file_type}; '
-        f'this is designed for MT or compressed VCF only'
-    )
-
-    if input_file_type == FileTypes.MATRIX_TABLE:
-        if skip_annotation:
-            # overwrite the expected annotation output path
-            global ANNOTATED_MT  # pylint: disable=W0603
-            ANNOTATED_MT = input_path
-        else:
-            raise Exception('need some annotated input')
-    else:
-        raise Exception('need some annotated input')
-
-    # -------------------------------- #
-    # query panelapp for panel details #
-    # -------------------------------- #
-    if not AnyPath(PANELAPP_JSON_OUT).exists():
-        _prior_job = handle_panelapp_job(
-            batch=batch,
-            gene_list=panel_genes,
-            prev_version=panelapp_version,
-            prior_job=prior_job,
-        )
     _prior_job = handle_hail_filtering(
         batch=batch,
         config=config_json,
