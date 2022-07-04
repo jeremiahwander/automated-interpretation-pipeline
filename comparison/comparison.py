@@ -284,7 +284,7 @@ def find_missing(
 
         # log!
         logging_dict[sample]['seqr_not_aip'] = len(sample_discrepancies)
-        logging_dict[sample]['variants_matched'] = len(seqr_results) - len(
+        logging_dict[sample]['variants_matched'] = len(seqr_results[sample]) - len(
             sample_discrepancies
         )
 
