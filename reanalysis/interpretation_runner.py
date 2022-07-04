@@ -27,6 +27,7 @@ import click
 from cloudpathlib import AnyPath, CloudPath
 import hailtop.batch as hb
 
+from cpg_utils.config import get_config
 from cpg_utils.git import (
     prepare_git_job,
     get_git_commit_ref_of_current_repository,
@@ -42,9 +43,9 @@ from cpg_utils.hail_batch import (
     remote_tmpdir,
 )
 
-from reanalysis import annotation
-from reanalysis.utils import read_json_from_path
-from reanalysis.vep.jobs import vep_jobs, SequencingType
+import annotation
+from utils import read_json_from_path
+from vep.jobs import vep_jobs, SequencingType
 
 
 # static paths to write outputs
@@ -80,7 +81,7 @@ OUTPUT_DICT = {
 
 # location of the CPG BCFTools image
 BCFTOOLS_IMAGE = image_path('bcftools')
-DEFAULT_IMAGE = os.getenv('CPG_DRIVER_IMAGE')
+DEFAULT_IMAGE = get_config()['workflow']['driver_image']
 assert DEFAULT_IMAGE
 
 # local script references
@@ -173,7 +174,7 @@ def annotate_vcf(
     return vep_jobs(
         b=batch,
         vcf_path=AnyPath(input_vcf),
-        hail_billing_project=os.getenv('HAIL_BILLING_PROJECT'),
+        hail_billing_project=get_config()['hail']['billing_project'],
         hail_bucket=AnyPath(remote_tmpdir()),
         tmp_bucket=AnyPath(VEP_STAGE_TMP),
         out_path=AnyPath(VEP_HT_TMP),
@@ -195,7 +196,7 @@ def annotated_mt_from_ht_and_vcf(
     apply_anno_job = batch.new_job('HT + VCF = MT', job_attrs)
 
     copy_common_env(apply_anno_job)
-    apply_anno_job.image(os.getenv('CPG_DRIVER_IMAGE'))
+    apply_anno_job.image(get_config()['workflow']['driver_image'])
 
     cmd = query_command(
         annotation,
@@ -204,7 +205,7 @@ def annotated_mt_from_ht_and_vcf(
         VEP_HT_TMP,
         ANNOTATED_MT,
         setup_gcp=True,
-        hail_billing_project=os.getenv('HAIL_BILLING_PROJECT'),
+        hail_billing_project=get_config()['hail']['billing_project'],
         hail_bucket=str(remote_tmpdir()),
         default_reference='GRCh38',
         packages=['seqr-loader==1.2.5'],
@@ -426,6 +427,12 @@ def file_is_vcf(file_path: str) -> bool:
     help='location of a plink file for the singletons',
     required=False,
 )
+@click.option(
+    '--skip_annotation',
+    help='if set, a MT with appropriate annotations can be provided',
+    is_flag=True,
+    default=False,
+)
 def main(
     input_path: str,
     config_json: str,
@@ -433,7 +440,8 @@ def main(
     panel_genes: Optional[str],
     plink_file: str,
     singletons: Optional[str] = None,
-):
+    skip_annotation: bool = False,
+):  # pylint: disable=too-many-branches
     """
     main method, which runs the full reanalysis process
 
@@ -443,6 +451,7 @@ def main(
     :param panel_genes:
     :param plink_file:
     :param singletons:
+    :param skip_annotation:
     """
 
     if not AnyPath(input_path).exists():
@@ -455,7 +464,7 @@ def main(
     config_dict = read_json_from_path(config_json)
 
     service_backend = hb.ServiceBackend(
-        billing_project=os.getenv('HAIL_BILLING_PROJECT'),
+        billing_project=get_config()['hail']['billing_project'],
         remote_tmpdir=remote_tmpdir(),
     )
     batch = hb.Batch(
@@ -473,9 +482,15 @@ def main(
     # -------------------------- #
     # determine the input type
     if not file_is_vcf(input_path):
-        # then we must decompose into a VCF prior to annotation!
-        prior_job = mt_to_vcf(batch=batch, input_file=input_path)
-        input_path = INPUT_AS_VCF
+
+        if input_path.endswith('.mt') and skip_annotation:
+            # overwrite the expected annotation output path
+            global ANNOTATED_MT  # pylint: disable=W0603
+            ANNOTATED_MT = input_path
+        else:
+            # then we must decompose into a VCF prior to annotation!
+            prior_job = mt_to_vcf(batch=batch, input_file=input_path)
+            input_path = INPUT_AS_VCF
 
     # ------------------------------------- #
     # split the VCF, and annotate using VEP #
