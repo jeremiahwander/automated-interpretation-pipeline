@@ -16,7 +16,7 @@ compound-het calculations moved to Hail, removed requirement for Slivar stage
 """
 
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import logging
 from pathlib import Path
@@ -24,7 +24,7 @@ import os
 import sys
 
 import click
-from cloudpathlib import AnyPath, CloudPath
+from cloudpathlib import AnyPath
 import hailtop.batch as hb
 
 from cpg_utils.config import get_config
@@ -44,7 +44,6 @@ from cpg_utils.hail_batch import (
 )
 
 import annotation
-from utils import read_json_from_path
 from vep.jobs import vep_jobs, SequencingType
 
 
@@ -283,49 +282,6 @@ def handle_hail_filtering(
     return labelling_job
 
 
-def handle_reheader_job(
-    batch: hb.Batch,
-    local_vcf: str,
-    config_dict: Dict[str, Any],
-    prior_job: Optional[hb.batch.job.Job] = None,
-) -> hb.batch.job.BashJob:
-    """
-    runs the bcftools re-header process
-    :param batch:
-    :param local_vcf:
-    :param config_dict:
-    :param prior_job:
-    :return:
-    """
-
-    bcft_job = batch.new_job(name='bcftools_reheader_stage')
-    set_job_resources(bcft_job, image=BCFTOOLS_IMAGE, prior_job=prior_job)
-
-    bcft_job.declare_resource_group(
-        vcf={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'}
-    )
-
-    # reheader the VCF using BCFtools and sed
-    # replace the empty description with the full CSQ line from config
-    desc = '##INFO=<ID=CSQ,Number=.,Type=String,Description="'
-
-    # grotty string formatting to deliver the correct syntax to bcftools
-    conf_csq = config_dict['variant_object'].get('csq_string').replace('|', r'\|')
-    new_format = rf"Format: '{conf_csq}'"
-
-    # only to reduce line length
-    b_rh = 'bcftools reheader'
-
-    bcft_job.command(
-        'set -ex; '
-        f'bcftools view -h {local_vcf} | sed \'s/'
-        f'{desc}">/{desc}{new_format}">/\' > new_header; '
-        f'{b_rh} -h new_header --threads 4 -o {bcft_job.vcf["vcf.bgz"]} {local_vcf}; '
-        f'tabix {bcft_job.vcf["vcf.bgz"]}; '
-    )
-    return bcft_job
-
-
 def handle_results_job(
     batch: hb.Batch,
     config: str,
@@ -422,25 +378,12 @@ def file_is_vcf(file_path: str) -> bool:
     help='location of a plink file for the cohort',
     required=True,
 )
-@click.option(
-    '--singletons',
-    help='location of a plink file for the singletons',
-    required=False,
-)
-@click.option(
-    '--skip_annotation',
-    help='if set, a MT with appropriate annotations can be provided',
-    is_flag=True,
-    default=False,
-)
 def main(
     input_path: str,
     config_json: str,
     panelapp_version: Optional[str],
     panel_genes: Optional[str],
     plink_file: str,
-    singletons: Optional[str] = None,
-    skip_annotation: bool = False,
 ):  # pylint: disable=too-many-branches
     """
     main method, which runs the full reanalysis process
@@ -450,8 +393,6 @@ def main(
     :param panelapp_version:
     :param panel_genes:
     :param plink_file:
-    :param singletons:
-    :param skip_annotation:
     """
 
     if not AnyPath(input_path).exists():
@@ -460,8 +401,6 @@ def main(
         )
 
     logging.info('Starting the reanalysis batch')
-
-    config_dict = read_json_from_path(config_json)
 
     service_backend = hb.ServiceBackend(
         billing_project=get_config()['hail']['billing_project'],
@@ -477,46 +416,6 @@ def main(
     # set a first job in this batch
     prior_job = None
 
-    # -------------------------- #
-    # Convert MT to a VCF format #
-    # -------------------------- #
-    # determine the input type
-    if not file_is_vcf(input_path):
-
-        if input_path.endswith('.mt') and skip_annotation:
-            # overwrite the expected annotation output path
-            global ANNOTATED_MT  # pylint: disable=W0603
-            ANNOTATED_MT = input_path
-        else:
-            # then we must decompose into a VCF prior to annotation!
-            prior_job = mt_to_vcf(batch=batch, input_file=input_path)
-            input_path = INPUT_AS_VCF
-
-    # ------------------------------------- #
-    # split the VCF, and annotate using VEP #
-    # ------------------------------------- #
-    # now we do the annotation, unless it already exists
-    annotated_path = CloudPath(ANNOTATED_MT)
-    if not annotated_path.exists():
-        # need to run the annotation phase
-        # uses default values from RefData
-        annotation_jobs = annotate_vcf(input_path, batch=batch)
-
-        # if the conversion to VCF job exists, assign as a dependency
-        # for all annotation jobs
-        if prior_job:
-            for job in annotation_jobs:
-                job.depends_on(prior_job)
-
-        # apply annotations
-        anno_job = annotated_mt_from_ht_and_vcf(
-            input_vcf=input_path, batch=batch, job_attrs={}
-        )
-        anno_job.depends_on(*annotation_jobs)
-
-        # take the last job in this batch, and use for future dependencies
-        prior_job = anno_job
-
     # -------------------------------- #
     # query panelapp for panel details #
     # -------------------------------- #
@@ -529,72 +428,13 @@ def main(
             prior_job=prior_job,
         )
 
-    # ----------------------- #
-    # run hail categorisation #
-    # ----------------------- #
-    # only run if the output VCF doesn't already exist
-    if not AnyPath(REHEADERED_OUT).exists():
-        logging.info(
-            f'The Reheadered VCF "{REHEADERED_OUT}" doesn\'t exist; regenerating'
-        )
-
-        if not AnyPath(HAIL_VCF_OUT).exists():
-            logging.info(
-                f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating'
-            )
-
-            prior_job = handle_hail_filtering(
-                batch=batch,
-                matrix_path=ANNOTATED_MT,
-                config=config_json,
-                prior_job=prior_job,
-                plink_file=plink_file,
-            )
-
-        # --------------------------------- #
-        # bcftools re-headering of hail VCF #
-        # --------------------------------- #
-        # copy the labelled output file into the remaining batch jobs
-        hail_output_in_batch = batch.read_input_group(
-            **{'vcf.bgz': HAIL_VCF_OUT, 'vcf.bgz.tbi': HAIL_VCF_OUT + '.tbi'}
-        )
-
-        # this is no longer explicitly required...
-        # it was required to run slivar: geneId, consequences, and transcript
-        # keeping in to ensure the VCF can be interpreted without the config
-        bcftools_job = handle_reheader_job(
-            batch=batch,
-            local_vcf=hail_output_in_batch['vcf.bgz'],
-            config_dict=config_dict,
-            prior_job=prior_job,
-        )
-        batch.write_output(bcftools_job.vcf, REHEADERED_PREFIX)
-        reheadered_vcf_in_batch = bcftools_job.vcf['vcf.bgz']
-
-    # if it exists remotely, read into a batch
-    else:
-        needs_vqsr_line = batch.read_input_group(
-            **{'vcf.bgz': REHEADERED_OUT, 'vcf.bgz.tbi': REHEADERED_OUT + '.tbi'}
-        )
-        reheadered_vcf_in_batch = needs_vqsr_line['vcf.bgz']
-
-    analysis_rounds = [(plink_file, 'default')]
-    if singletons and AnyPath(singletons).exists():
-        analysis_rounds.append((singletons, 'singletons'))
-
-    for relationships, analysis_index in analysis_rounds:
-        logging.info(f'running analysis in {analysis_index} mode')
-        # use compound-hets and labelled VCF to identify plausibly pathogenic
-        # variants where the MOI is viable compared to the PanelApp expectation
-        _results_job = handle_results_job(
-            batch=batch,
-            config=config_json,
-            comp_het=COMP_HET_JSON,
-            reheadered_vcf=reheadered_vcf_in_batch,
-            pedigree=relationships,
-            analysis_index=analysis_index,
-            prior_job=prior_job,
-        )
+    _prior_job = handle_hail_filtering(
+        batch=batch,
+        matrix_path=input_path,
+        config=config_json,
+        prior_job=prior_job,
+        plink_file=plink_file,
+    )
     batch.run(wait=False)
 
 
