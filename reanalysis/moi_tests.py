@@ -160,6 +160,7 @@ class BaseMoi:
         if applied_moi is None:
             raise Exception('An applied MOI needs to reach the Base Class')
         self.pedigree = pedigree
+        self.pedigree_samples = [sam.sample_id for sam in pedigree.samples()]
         self.config = config
         self.applied_moi = applied_moi
 
@@ -317,6 +318,8 @@ class DominantAutosomal(BaseMoi):
             principal_var.hom_samples
         )
         for sample_id in samples_with_this_variant:
+            if sample_id not in self.pedigree_samples:
+                continue
 
             # skip primary analysis for unaffected members
             if not self.pedigree[sample_id].affected == PEDDY_AFFECTED:
@@ -364,6 +367,7 @@ class RecessiveAutosomal(BaseMoi):
         self.hom_threshold = config.get(GNOMAD_REC_HOM_THRESHOLD)
         super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
+    # pylint: disable=too-many-branches
     def run(
         self,
         principal_var: AbstractVariant,
@@ -396,7 +400,9 @@ class RecessiveAutosomal(BaseMoi):
             return classifications
 
         # homozygous is relevant directly
-        for sample_id in principal_var.hom_samples:
+        for sample_id in [
+            s for s in principal_var.hom_samples if s in self.pedigree_samples
+        ]:
 
             # skip primary analysis for unaffected members
             if not self.pedigree[sample_id].affected == PEDDY_AFFECTED:
@@ -428,6 +434,8 @@ class RecessiveAutosomal(BaseMoi):
 
         # if hets are present, try and find support
         for sample_id in principal_var.het_samples:
+            if sample_id not in self.pedigree_samples:
+                continue
 
             # skip primary analysis for unaffected members
             if not self.pedigree[sample_id].affected == PEDDY_AFFECTED:
@@ -542,6 +550,8 @@ class XDominant(BaseMoi):
         )
 
         for sample_id in samples_with_this_variant:
+            if sample_id not in self.pedigree_samples:
+                continue
 
             # skip primary analysis for unaffected members
             if not self.pedigree[sample_id].affected == PEDDY_AFFECTED:
@@ -602,6 +612,7 @@ class XRecessive(BaseMoi):
 
         super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
+    # pylint: disable=too-many-branches
     def run(
         self,
         principal_var: AbstractVariant,
@@ -636,19 +647,19 @@ class XRecessive(BaseMoi):
         males = {
             sam
             for sam in principal_var.het_samples.union(principal_var.hom_samples)
-            if self.pedigree[sam].sex == 'male'
+            if self.pedigree[sam].sex == 'male' and sam in self.pedigree_samples
         }
 
         # split female calls into 2 categories
         het_females = {
             sam
             for sam in principal_var.het_samples
-            if self.pedigree[sam].sex == 'female'
+            if self.pedigree[sam].sex == 'female' and sam in self.pedigree_samples
         }
         hom_females = {
             sam
             for sam in principal_var.hom_samples
-            if self.pedigree[sam].sex == 'female'
+            if self.pedigree[sam].sex == 'female' and sam in self.pedigree_samples
         }
 
         # if het females are present, try and find support
@@ -687,10 +698,8 @@ class XRecessive(BaseMoi):
                         reasons={f'{self.applied_moi} Compound-Het Female'},
                         supported=True,
                         support_vars=[partner_variant.coords.string_format],
-                        flags=(
-                            principal_var.get_sample_flags(sample_id).extend(
-                                partner_variant.get_sample_flags(sample_id)
-                            ),
+                        flags=principal_var.get_sample_flags(sample_id).extend(
+                            partner_variant.get_sample_flags(sample_id),
                         ),
                     )
                 )
@@ -707,6 +716,8 @@ class XRecessive(BaseMoi):
         # find all het males and hom females
         samples_to_check = males.union(hom_females)
         for sample_id in samples_to_check:
+            if sample_id not in self.pedigree_samples:
+                continue
 
             # specific affected sample category check
             if not (
@@ -811,6 +822,8 @@ class YHemi(BaseMoi):
 
         # we don't expect any confident Y calls in females
         for sample_id in principal_var.het_samples.union(principal_var.hom_samples):
+            if sample_id not in self.pedigree_samples:
+                continue
 
             # skip primary analysis for unaffected members
             if not self.pedigree[sample_id].affected == PEDDY_AFFECTED:

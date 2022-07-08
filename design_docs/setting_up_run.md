@@ -13,7 +13,7 @@ CPG-specific guidance on how to generate input files for a new run
 (You'll want a cohort and run-specific folder to copy these files to. This can also be the output folder for the run)
 
 1. Query DeepPan for the pedigree and internal -> external lookup files
-   - [cohort_prep.sh](helpers/cohort_prep.sh) is a shortcut for this process
+   - [cohort_prep.sh](../helpers/cohort_prep.sh) is a shortcut for this process
    - `bash helpers/cohort_prep.sh COHORT [% of cohort to retain]` will create files in `inputs/COHORT`
    - The file ending `.fam` is the pedigree file. Copy to GCP, and the path becomes an input argument
    - The file ending `external_lookup.json` is used to translate CPG to external IDs. Copy to GCP and enter the file path into the run config `output.external_lookup`
@@ -29,7 +29,7 @@ CPG-specific guidance on how to generate input files for a new run
    - Refresh, then find the named request `get_overview`
    - On the right-side of the console, find the `Response` tab, which should show some JSON
    - Select all this JSON and save to a file
-   - Run the [process_seqr_metadata script](helpers/process_seqr_metadata.py), with this file as input (`-i`) and your chosen path as output (`-o`)
+   - Run the [process_seqr_metadata script](../helpers/process_seqr_metadata.py), with this file as input (`-i`) and your chosen path as output (`-o`)
    - Copy this file to GCP, and add the path to the config as `output.seqr_lookup`
 3. Copy any additional files (vqsr header, csq header line) to the relevant bucket, and update paths in config
 4. Check any other configuration values (e.g. thresholds)
@@ -37,7 +37,7 @@ CPG-specific guidance on how to generate input files for a new run
 
 ## Starting the run
 
-Create a run script based on the example [run_reanalysis.sh](reanalysis/run_reanalysis.sh)
+Create a run script based on the example [run_reanalysis.sh](../reanalysis/run_reanalysis.sh)
 
 All paths referenced here must be GCP bucket paths, as no files will be copied to GCP at runtime. For input genomic data
 this will involve finding the appropriate paths to use. For input files this will involve transcribing the paths you
