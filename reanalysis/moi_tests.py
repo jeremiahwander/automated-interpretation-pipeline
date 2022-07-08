@@ -249,7 +249,11 @@ class BaseMoi:
         # if both vars are present in a single parent: not a compound het
         # or if the parent is affected: not causative
         sample_ped_entry = self.pedigree[sample_id]
-        for parent in [sample_ped_entry.mom, sample_ped_entry.dad]:
+        for parent in [
+            parent
+            for parent in (sample_ped_entry.mom, sample_ped_entry.dad)
+            if parent is not None
+        ]:
             if (
                 (parent.sample_id in variant_1.het_samples)
                 and (parent.sample_id in variant_2.het_samples)
