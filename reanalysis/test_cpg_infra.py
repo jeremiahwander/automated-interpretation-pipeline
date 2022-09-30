@@ -18,22 +18,23 @@ def main(
     main
     """
 
-    service_backend = hb.ServiceBackend(
-        billing_project=get_config()['hail']['billing_project'],
-        remote_tmpdir=remote_tmpdir(),
-    )
-    batch = hb.Batch(
-        name='AIP batch',
-        backend=service_backend,
-        cancel_after_n_failures=1,
-        default_timeout=6000,
-        default_memory='highmem',
-    )
+    print(get_config())
+    # service_backend = hb.ServiceBackend(
+    #     billing_project=get_config()['hail']['billing_project'],
+    #     remote_tmpdir=remote_tmpdir(),
+    # )
+    # batch = hb.Batch(
+    #     name='AIP batch',
+    #     backend=service_backend,
+    #     cancel_after_n_failures=1,
+    #     default_timeout=6000,
+    #     default_memory='highmem',
+    # )
 
-    j = batch.new_job()
-    j.command('echo "Hello World."')
+    # j = batch.new_job()
+    # j.command('echo "Hello World."')
 
-    batch.run(wait=False)
+    # batch.run(wait=False)
 
 
 if __name__ == '__main__':
