@@ -3,7 +3,8 @@
 
 import click
 
-from cpg_utils import get_config, remote_tmpdir
+from cpg_utils.config import get_config
+from cpg_utils.hail_batch import remote_tmpdir
 import hailtop.batch as hb
 
 @click.command()
