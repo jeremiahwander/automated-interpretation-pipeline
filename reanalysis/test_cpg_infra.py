@@ -3,7 +3,7 @@
 
 import click
 
-#from cpg_utils.config import get_config
+from cpg_utils.config import get_config
 from cpg_utils.hail_batch import remote_tmpdir, output_path
 import hailtop.batch as hb
 
@@ -18,8 +18,9 @@ def main(
     main
     """
 
-    print("hello-olleh")
-    print(f"Output Path: {output_path('sample_output.txt')}")
+    print(f"get_config() = {get_config()}")
+    #print("hello-olleh")
+    #print(f"Output Path: {output_path('sample_output.txt')}")
     
     # service_backend = hb.ServiceBackend(
     #     billing_project=get_config()['hail']['billing_project'],
