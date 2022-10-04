@@ -18,7 +18,7 @@ def main(
     main
     """
 
-    print(get_config())
+    print("hello-olleh")
     # service_backend = hb.ServiceBackend(
     #     billing_project=get_config()['hail']['billing_project'],
     #     remote_tmpdir=remote_tmpdir(),
