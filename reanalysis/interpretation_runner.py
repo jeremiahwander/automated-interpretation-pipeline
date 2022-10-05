@@ -379,24 +379,20 @@ def main(
         },
     }
 
-    import pprint
-    print("config_dict")
-    pprint.pprint(config_dict)
-    print("")
-    print("output_dict")
-    pprint.pprint(output_dict)
+    service_backend = hb.ServiceBackend(
+        billing_project=get_config()['hail']['billing_project'],
+        remote_tmpdir=remote_tmpdir(),
+    )
+    batch = hb.Batch(
+        name='AIP batch',
+        backend=service_backend,
+        cancel_after_n_failures=1,
+        default_timeout=6000,
+        default_memory='highmem',
+    )
 
-    # service_backend = hb.ServiceBackend(
-    #     billing_project=get_config()['hail']['billing_project'],
-    #     remote_tmpdir=remote_tmpdir(),
-    # )
-    # batch = hb.Batch(
-    #     name='AIP batch',
-    #     backend=service_backend,
-    #     cancel_after_n_failures=1,
-    #     default_timeout=6000,
-    #     default_memory='highmem',
-    # )
+    j = batch.new_bash_job(name="Hello Bash in Bash")
+    j.command('echo "Hello World"')
 
     # # read the ped file into the Batch
     # pedigree_in_batch = batch.read_input(plink_file)
@@ -512,7 +508,7 @@ def main(
     #     with AnyPath(output_path('latest_singletons.fam')).open('w') as handle:
     #         handle.writelines(AnyPath(singletons).open().readlines())
 
-    # batch.run(wait=False)
+    batch.run(wait=False)
 
 
 if __name__ == '__main__':
