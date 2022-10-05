@@ -10,7 +10,7 @@ analysis-runner \
   --description "AIP runtime test" \
   -o "reanalysis/${PAP_DATE}" \
   --access-level standard \
-  --env CPG_CONFIG_PATH="hail-az://sevgen002/cpg-severalgenomes-main/cpg-config.toml"
+  --env CPG_CONFIG_PATH="hail-az://sevgen002/cpg-severalgenomes-main/cpg-config.toml" \
   reanalysis/interpretation_runner.py \
     --config_json reanalysis/reanalysis_conf.json \
     --input_path reanalysis/2011-11-11/prior_to_annotation.vcf.bgz \
