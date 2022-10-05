@@ -289,6 +289,10 @@ def handle_results_job(
     results_job.command(results_command)
     return results_job
 
+def cpg_utils_resolve_blob_name_as_hail_path(blob_name: str) -> str:
+    account = 'sevgen002'
+    container = 'cpg-severalgenomes-main'
+    return f'hail-az://{account}/{container}/{blob_name.lstrip("/")}'
 
 @click.command()
 @click.option(
@@ -336,172 +340,173 @@ def main(
     :param skip_annotation:
     """
 
-    if not AnyPath(input_path).exists():
-        raise Exception(
-            f'The provided path "{input_path}" does not exist or is inaccessible'
-        )
+    print("IMPORTS SUCCESSFUL")
+    # if not AnyPath(input_path).exists():
+    #     raise Exception(
+    #         f'The provided path "{input_path}" does not exist or is inaccessible'
+    #     )
 
-    logging.info('Starting the reanalysis batch')
+    # logging.info('Starting the reanalysis batch')
 
-    config_dict = read_json_from_path(config_json)
-    config_dict.update(
-        {
-            'latest_run': f'{datetime.now():%Y-%m-%d %H:%M:%S%z}',
-            'input_file': input_path,
-            'panelapp_file': PANELAPP_JSON_OUT,
-            'cohort': get_config()['workflow']['dataset'],
-        }
-    )
+    # config_dict = read_json_from_path(config_json)
+    # config_dict.update(
+    #     {
+    #         'latest_run': f'{datetime.now():%Y-%m-%d %H:%M:%S%z}',
+    #         'input_file': input_path,
+    #         'panelapp_file': PANELAPP_JSON_OUT,
+    #         'cohort': get_config()['workflow']['dataset'],
+    #     }
+    # )
 
-    # create output paths with optional suffixes
-    vep_stage_tmp = output_path('vep_temp', config_dict.get('tmp_suffix') or None)
-    vep_ht_tmp = output_path(
-        'vep_annotations.ht', config_dict.get('tmp_suffix') or None
-    )
+    # # create output paths with optional suffixes
+    # vep_stage_tmp = output_path('vep_temp', config_dict.get('tmp_suffix') or None)
+    # vep_ht_tmp = output_path(
+    #     'vep_annotations.ht', config_dict.get('tmp_suffix') or None
+    # )
 
-    # separate paths for familial and singleton analysis
-    output_dict = {
-        'default': {
-            'web_html': output_path(
-                'summary_output.html', config_dict.get('web_suffix') or None
-            ),
-            'results': output_path('summary_results.json'),
-        },
-        'singletons': {
-            'web_html': output_path(
-                'singleton_output.html', config_dict.get('web_suffix') or None
-            ),
-            'results': output_path('singleton_results.json'),
-        },
-    }
+    # # separate paths for familial and singleton analysis
+    # output_dict = {
+    #     'default': {
+    #         'web_html': output_path(
+    #             'summary_output.html', config_dict.get('web_suffix') or None
+    #         ),
+    #         'results': output_path('summary_results.json'),
+    #     },
+    #     'singletons': {
+    #         'web_html': output_path(
+    #             'singleton_output.html', config_dict.get('web_suffix') or None
+    #         ),
+    #         'results': output_path('singleton_results.json'),
+    #     },
+    # }
 
-    service_backend = hb.ServiceBackend(
-        billing_project=get_config()['hail']['billing_project'],
-        remote_tmpdir=remote_tmpdir(),
-    )
-    batch = hb.Batch(
-        name='AIP batch',
-        backend=service_backend,
-        cancel_after_n_failures=1,
-        default_timeout=6000,
-        default_memory='highmem',
-    )
+    # service_backend = hb.ServiceBackend(
+    #     billing_project=get_config()['hail']['billing_project'],
+    #     remote_tmpdir=remote_tmpdir(),
+    # )
+    # batch = hb.Batch(
+    #     name='AIP batch',
+    #     backend=service_backend,
+    #     cancel_after_n_failures=1,
+    #     default_timeout=6000,
+    #     default_memory='highmem',
+    # )
 
-    # read the ped file into the Batch
-    pedigree_in_batch = batch.read_input(plink_file)
+    # # read the ped file into the Batch
+    # pedigree_in_batch = batch.read_input(plink_file)
 
-    # set a first job in this batch
-    prior_job = None
+    # # set a first job in this batch
+    # prior_job = None
 
-    # -------------------------- #
-    # Convert MT to a VCF format #
-    # -------------------------- #
-    # determine the input type - if MT, decompose to VCF prior to annotation
-    input_file_type = identify_file_type(input_path)
-    assert input_file_type in [
-        FileTypes.VCF_GZ,
-        FileTypes.VCF_BGZ,
-        FileTypes.MATRIX_TABLE,
-    ], (
-        f'inappropriate input type provided: {input_file_type}; '
-        f'this is designed for MT or compressed VCF only'
-    )
+    # # -------------------------- #
+    # # Convert MT to a VCF format #
+    # # -------------------------- #
+    # # determine the input type - if MT, decompose to VCF prior to annotation
+    # input_file_type = identify_file_type(input_path)
+    # assert input_file_type in [
+    #     FileTypes.VCF_GZ,
+    #     FileTypes.VCF_BGZ,
+    #     FileTypes.MATRIX_TABLE,
+    # ], (
+    #     f'inappropriate input type provided: {input_file_type}; '
+    #     f'this is designed for MT or compressed VCF only'
+    # )
 
-    if input_file_type == FileTypes.MATRIX_TABLE:
-        if skip_annotation:
-            config_dict.update({'aip_annotated': False})
-            # overwrite the expected annotation output path
-            global ANNOTATED_MT  # pylint: disable=W0603
-            ANNOTATED_MT = input_path
+    # if input_file_type == FileTypes.MATRIX_TABLE:
+    #     if skip_annotation:
+    #         config_dict.update({'aip_annotated': False})
+    #         # overwrite the expected annotation output path
+    #         global ANNOTATED_MT  # pylint: disable=W0603
+    #         ANNOTATED_MT = input_path
 
-        else:
-            prior_job = mt_to_vcf(batch=batch, input_file=input_path)
-            config_dict.update({'vcf_created': INPUT_AS_VCF})
-            # overwrite input path with file we just created
-            input_path = INPUT_AS_VCF
+    #     else:
+    #         prior_job = mt_to_vcf(batch=batch, input_file=input_path)
+    #         config_dict.update({'vcf_created': INPUT_AS_VCF})
+    #         # overwrite input path with file we just created
+    #         input_path = INPUT_AS_VCF
 
-    # ------------------------------------- #
-    # split the VCF, and annotate using VEP #
-    # ------------------------------------- #
-    if not CloudPath(ANNOTATED_MT).exists():
-        # need to run the annotation phase
-        # uses default values from RefData
-        annotation_jobs = annotate_vcf(
-            input_path, batch=batch, vep_temp=vep_stage_tmp, vep_out=vep_ht_tmp
-        )
+    # # ------------------------------------- #
+    # # split the VCF, and annotate using VEP #
+    # # ------------------------------------- #
+    # if not CloudPath(ANNOTATED_MT).exists():
+    #     # need to run the annotation phase
+    #     # uses default values from RefData
+    #     annotation_jobs = annotate_vcf(
+    #         input_path, batch=batch, vep_temp=vep_stage_tmp, vep_out=vep_ht_tmp
+    #     )
 
-        # if convert-to-VCF job exists, assign as an annotation dependency
-        if prior_job:
-            for job in annotation_jobs:
-                job.depends_on(prior_job)
+    #     # if convert-to-VCF job exists, assign as an annotation dependency
+    #     if prior_job:
+    #         for job in annotation_jobs:
+    #             job.depends_on(prior_job)
 
-        # apply annotations
-        prior_job = annotated_mt_from_ht_and_vcf(
-            input_vcf=input_path, batch=batch, job_attrs={}, vep_ht=vep_ht_tmp
-        )
-        prior_job.depends_on(*annotation_jobs)
+    #     # apply annotations
+    #     prior_job = annotated_mt_from_ht_and_vcf(
+    #         input_vcf=input_path, batch=batch, job_attrs={}, vep_ht=vep_ht_tmp
+    #     )
+    #     prior_job.depends_on(*annotation_jobs)
 
-        config_dict.update({'aip_annotated': True})
+    #     config_dict.update({'aip_annotated': True})
 
-    # -------------------------------- #
-    # query panelapp for panel details #
-    # -------------------------------- #
-    if not AnyPath(PANELAPP_JSON_OUT).exists():
-        prior_job = handle_panelapp_job(
-            batch=batch,
-            extra_panel=extra_panel,
-            gene_list=panel_genes,
-            prior_job=prior_job,
-        )
+    # # -------------------------------- #
+    # # query panelapp for panel details #
+    # # -------------------------------- #
+    # if not AnyPath(PANELAPP_JSON_OUT).exists():
+    #     prior_job = handle_panelapp_job(
+    #         batch=batch,
+    #         extra_panel=extra_panel,
+    #         gene_list=panel_genes,
+    #         prior_job=prior_job,
+    #     )
 
-    # ----------------------- #
-    # run hail categorisation #
-    # ----------------------- #
-    if not AnyPath(HAIL_VCF_OUT).exists():
-        logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-        prior_job = handle_hail_filtering(
-            batch=batch,
-            config=config_json,
-            prior_job=prior_job,
-            plink_file=pedigree_in_batch,
-        )
+    # # ----------------------- #
+    # # run hail categorisation #
+    # # ----------------------- #
+    # if not AnyPath(HAIL_VCF_OUT).exists():
+    #     logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
+    #     prior_job = handle_hail_filtering(
+    #         batch=batch,
+    #         config=config_json,
+    #         prior_job=prior_job,
+    #         plink_file=pedigree_in_batch,
+    #     )
 
-    # read that VCF into the batch as a local file
-    labelled_vcf_in_batch = batch.read_input_group(
-        vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
-    ).vcf
+    # # read that VCF into the batch as a local file
+    # labelled_vcf_in_batch = batch.read_input_group(
+    #     vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
+    # ).vcf
 
-    # if singleton PED supplied, also run as singletons w/separate outputs
-    analysis_rounds = [(pedigree_in_batch, 'default')]
-    if singletons and AnyPath(singletons).exists():
-        pedigree_singletons = batch.read_input(singletons)
-        analysis_rounds.append((pedigree_singletons, 'singletons'))
+    # # if singleton PED supplied, also run as singletons w/separate outputs
+    # analysis_rounds = [(pedigree_in_batch, 'default')]
+    # if singletons and AnyPath(singletons).exists():
+    #     pedigree_singletons = batch.read_input(singletons)
+    #     analysis_rounds.append((pedigree_singletons, 'singletons'))
 
-    # pointing this analysis at the updated config file, including input metadata
-    for relationships, analysis_index in analysis_rounds:
-        logging.info(f'running analysis in {analysis_index} mode')
-        _results_job = handle_results_job(
-            batch=batch,
-            config=output_path('latest_config.json'),
-            labelled_vcf=labelled_vcf_in_batch,
-            pedigree=relationships,
-            output_dict=output_dict[analysis_index],
-            prior_job=prior_job,
-        )
+    # # pointing this analysis at the updated config file, including input metadata
+    # for relationships, analysis_index in analysis_rounds:
+    #     logging.info(f'running analysis in {analysis_index} mode')
+    #     _results_job = handle_results_job(
+    #         batch=batch,
+    #         config=output_path('latest_config.json'),
+    #         labelled_vcf=labelled_vcf_in_batch,
+    #         pedigree=relationships,
+    #         output_dict=output_dict[analysis_index],
+    #         prior_job=prior_job,
+    #     )
 
-    # save the json file into the batch output, with latest run details
-    with AnyPath(output_path('latest_config.json')).open('w') as handle:
-        json.dump(config_dict, handle, indent=True)
+    # # save the json file into the batch output, with latest run details
+    # with AnyPath(output_path('latest_config.json')).open('w') as handle:
+    #     json.dump(config_dict, handle, indent=True)
 
-    # write pedigree content to the output folder
-    with AnyPath(output_path('latest_pedigree.fam')).open('w') as handle:
-        handle.writelines(AnyPath(plink_file).open().readlines())
+    # # write pedigree content to the output folder
+    # with AnyPath(output_path('latest_pedigree.fam')).open('w') as handle:
+    #     handle.writelines(AnyPath(plink_file).open().readlines())
 
-    if singletons:
-        with AnyPath(output_path('latest_singletons.fam')).open('w') as handle:
-            handle.writelines(AnyPath(singletons).open().readlines())
+    # if singletons:
+    #     with AnyPath(output_path('latest_singletons.fam')).open('w') as handle:
+    #         handle.writelines(AnyPath(singletons).open().readlines())
 
-    batch.run(wait=False)
+    # batch.run(wait=False)
 
 
 if __name__ == '__main__':
