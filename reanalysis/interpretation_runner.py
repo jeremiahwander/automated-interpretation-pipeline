@@ -452,35 +452,38 @@ def main(
     # -------------------------------- #
     # query panelapp for panel details #
     # -------------------------------- #
-    if not AnyPath(PANELAPP_JSON_OUT).exists():
-        logging.info(f"PanelApp JSON {PANELAPP_JSON_OUT} doesn\'t exist, generating.")
-        prior_job = handle_panelapp_job(
-            batch=batch,
-            extra_panel=extra_panel,
-            gene_list=panel_genes,
-            prior_job=prior_job,
-        )
-    else:
-        logging.info("Using previous PanelApp JSON")
+    logging.info(f"PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}")
+    logging.info(f"HAIL_VCF_OUT: {HAIL_VCF_OUT}")
 
-    # ----------------------- #
-    # run hail categorisation #
-    # ----------------------- #
-    if not AnyPath(HAIL_VCF_OUT).exists():
-        logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-        prior_job = handle_hail_filtering(
-            batch=batch,
-            config=config_json,
-            prior_job=prior_job,
-            plink_file=pedigree_in_batch,
-        )
-    else:
-        logging.info(f"Using previous labelled VCF: {HAIL_VCF_OUT}")
+    # if not AnyPath(PANELAPP_JSON_OUT).exists():
+    #     logging.info(f"PanelApp JSON {PANELAPP_JSON_OUT} doesn\'t exist, generating.")
+    #     prior_job = handle_panelapp_job(
+    #         batch=batch,
+    #         extra_panel=extra_panel,
+    #         gene_list=panel_genes,
+    #         prior_job=prior_job,
+    #     )
+    # else:
+    #     logging.info("Using previous PanelApp JSON")
 
-    # read that VCF into the batch as a local file
-    labelled_vcf_in_batch = batch.read_input_group(
-        vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
-    ).vcf
+    # # ----------------------- #
+    # # run hail categorisation #
+    # # ----------------------- #
+    # if not AnyPath(HAIL_VCF_OUT).exists():
+    #     logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
+    #     prior_job = handle_hail_filtering(
+    #         batch=batch,
+    #         config=config_json,
+    #         prior_job=prior_job,
+    #         plink_file=pedigree_in_batch,
+    #     )
+    # else:
+    #     logging.info(f"Using previous labelled VCF: {HAIL_VCF_OUT}")
+
+    # # read that VCF into the batch as a local file
+    # labelled_vcf_in_batch = batch.read_input_group(
+    #     vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
+    # ).vcf
 
     # # if singleton PED supplied, also run as singletons w/separate outputs
     # analysis_rounds = [(pedigree_in_batch, 'default')]
