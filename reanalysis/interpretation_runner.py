@@ -42,18 +42,21 @@ import annotation
 from utils import read_json_from_path, FileTypes, identify_file_type
 from vep.jobs import vep_jobs, SequencingType
 
-
+# BIG TODO, HACK HERE
+def fix_output_path(input: str) -> str:
+    return input.replace('/severalgenomes', '/cpg-severalgenomes', 1)
+    
 # static paths to write outputs
-INPUT_AS_VCF = output_path('prior_to_annotation.vcf.bgz')
+INPUT_AS_VCF = fix_output_path(output_path('prior_to_annotation.vcf.bgz'))
 
 # phases of annotation
-ANNOTATED_MT = output_path('annotated_variants.mt')
+ANNOTATED_MT = fix_output_path(output_path('annotated_variants.mt'))
 
 # panelapp query results
-PANELAPP_JSON_OUT = output_path('panelapp_data.json')
+PANELAPP_JSON_OUT = fix_output_path(output_path('panelapp_data.json'))
 
 # output of labelling task in Hail
-HAIL_VCF_OUT = output_path('hail_categorised.vcf.bgz')
+HAIL_VCF_OUT = fix_output_path(output_path('hail_categorised.vcf.bgz'))
 
 
 # local script references
