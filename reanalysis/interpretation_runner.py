@@ -455,19 +455,17 @@ def main(
     # -------------------------------- #
     # query panelapp for panel details #
     # -------------------------------- #
-    logging.info(f"PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}")
-    logging.info(f"HAIL_VCF_OUT: {HAIL_VCF_OUT}")
 
-    # if not AnyPath(PANELAPP_JSON_OUT).exists():
-    #     logging.info(f"PanelApp JSON {PANELAPP_JSON_OUT} doesn\'t exist, generating.")
-    #     prior_job = handle_panelapp_job(
-    #         batch=batch,
-    #         extra_panel=extra_panel,
-    #         gene_list=panel_genes,
-    #         prior_job=prior_job,
-    #     )
-    # else:
-    #     logging.info("Using previous PanelApp JSON")
+    if not AnyPath(PANELAPP_JSON_OUT).exists():
+        logging.info(f"PanelApp JSON {PANELAPP_JSON_OUT} doesn\'t exist, generating.")
+        prior_job = handle_panelapp_job(
+            batch=batch,
+            extra_panel=extra_panel,
+            gene_list=panel_genes,
+            prior_job=prior_job,
+        )
+    else:
+        logging.info("Using previous PanelApp JSON")
 
     # # ----------------------- #
     # # run hail categorisation #
