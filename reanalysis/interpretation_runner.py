@@ -340,46 +340,49 @@ def main(
     :param skip_annotation:
     """
 
-    print("IMPORTS SUCCESSFUL")
-    # if not AnyPath(input_path).exists():
-    #     raise Exception(
-    #         f'The provided path "{input_path}" does not exist or is inaccessible'
-    #     )
+    if not AnyPath(input_path).exists():
+        raise Exception(
+            f'The provided path "{input_path}" does not exist or is inaccessible'
+        )
 
-    # logging.info('Starting the reanalysis batch')
+    logging.info('Starting the reanalysis batch')
 
-    # config_dict = read_json_from_path(config_json)
-    # config_dict.update(
-    #     {
-    #         'latest_run': f'{datetime.now():%Y-%m-%d %H:%M:%S%z}',
-    #         'input_file': input_path,
-    #         'panelapp_file': PANELAPP_JSON_OUT,
-    #         'cohort': get_config()['workflow']['dataset'],
-    #     }
-    # )
+    config_dict = read_json_from_path(config_json)
+    config_dict.update(
+        {
+            'latest_run': f'{datetime.now():%Y-%m-%d %H:%M:%S%z}',
+            'input_file': input_path,
+            'panelapp_file': PANELAPP_JSON_OUT,
+            'cohort': get_config()['workflow']['dataset'],
+        }
+    )
 
-    # # create output paths with optional suffixes
-    # vep_stage_tmp = output_path('vep_temp', config_dict.get('tmp_suffix') or None)
-    # vep_ht_tmp = output_path(
-    #     'vep_annotations.ht', config_dict.get('tmp_suffix') or None
-    # )
+    # create output paths with optional suffixes
+    vep_stage_tmp = output_path('vep_temp', config_dict.get('tmp_suffix') or None)
+    vep_ht_tmp = output_path(
+        'vep_annotations.ht', config_dict.get('tmp_suffix') or None
+    )
 
-    # # separate paths for familial and singleton analysis
-    # output_dict = {
-    #     'default': {
-    #         'web_html': output_path(
-    #             'summary_output.html', config_dict.get('web_suffix') or None
-    #         ),
-    #         'results': output_path('summary_results.json'),
-    #     },
-    #     'singletons': {
-    #         'web_html': output_path(
-    #             'singleton_output.html', config_dict.get('web_suffix') or None
-    #         ),
-    #         'results': output_path('singleton_results.json'),
-    #     },
-    # }
+    # separate paths for familial and singleton analysis
+    output_dict = {
+        'default': {
+            'web_html': output_path(
+                'summary_output.html', config_dict.get('web_suffix') or None
+            ),
+            'results': output_path('summary_results.json'),
+        },
+        'singletons': {
+            'web_html': output_path(
+                'singleton_output.html', config_dict.get('web_suffix') or None
+            ),
+            'results': output_path('singleton_results.json'),
+        },
+    }
 
+    print(f"config_dict: {config_dict}")
+    print("")
+    print(f"output_dict: {output_dict}")
+    
     # service_backend = hb.ServiceBackend(
     #     billing_project=get_config()['hail']['billing_project'],
     #     remote_tmpdir=remote_tmpdir(),

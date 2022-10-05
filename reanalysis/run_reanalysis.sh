@@ -10,9 +10,9 @@ analysis-runner \
   --description "AIP runtime test" \
   -o "reanalysis/${PAP_DATE}" \
   --access-level standard \
-  --env CPG_CONFIG_PATH="hail-az://sevgen002/cpg-severalgenomes-main/cpg-config.toml" \
+  --env CPG_CONFIG_PATH="hail-az://sevgen002sa/cpg-severalgenomes-main/cpg-config.toml" \
   reanalysis/interpretation_runner.py \
-    --config_json reanalysis/reanalysis_conf.json \
-    --input_path reanalysis/2011-11-11/prior_to_annotation.vcf.bgz \
-    --panel_genes reanalysis/pre_panelapp_mendeliome.json \
-    --plink_file reanalysis/severalgenomes-plink.fam
+    --config_json hail-az://sevgen002sa/cpg-severalgenomes-main/reanalysis/reanalysis_conf.json \
+    --input_path hail-az://sevgen002sa/cpg-severalgenomes-main/reanalysis/986d792a448c66a8a5cfba65434e7d1ce9b1ff_1051-validation.mt \
+    --panel_genes hail-az://sevgen002sa/cpg-severalgenomes-main/reanalysis/pre_panelapp_mendeliome.json \
+    --plink_file hail-az://sevgen002sa/cpg-severalgenomes-main/reanalysis/severalgenomes-plink.fam
