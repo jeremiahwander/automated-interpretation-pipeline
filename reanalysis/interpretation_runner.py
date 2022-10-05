@@ -453,6 +453,7 @@ def main(
     # query panelapp for panel details #
     # -------------------------------- #
     if not AnyPath(PANELAPP_JSON_OUT).exists():
+        logging.info(f"PanelApp JSON {PANELAPP_JSON_OUT} doesn\'t exist, generating.")
         prior_job = handle_panelapp_job(
             batch=batch,
             extra_panel=extra_panel,
