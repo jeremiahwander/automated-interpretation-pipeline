@@ -379,10 +379,13 @@ def main(
         },
     }
 
-    print(f"config_dict: {config_dict}")
+    import pprint
+    print("config_dict")
+    pprint(config_dict)
     print("")
-    print(f"output_dict: {output_dict}")
-    
+    print("output_dict")
+    pprint(output_dict)
+
     # service_backend = hb.ServiceBackend(
     #     billing_project=get_config()['hail']['billing_project'],
     #     remote_tmpdir=remote_tmpdir(),
