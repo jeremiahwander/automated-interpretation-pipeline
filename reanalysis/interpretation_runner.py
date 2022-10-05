@@ -381,10 +381,10 @@ def main(
 
     import pprint
     print("config_dict")
-    pprint(config_dict)
+    pprint.pprint(config_dict)
     print("")
     print("output_dict")
-    pprint(output_dict)
+    pprint.pprint(output_dict)
 
     # service_backend = hb.ServiceBackend(
     #     billing_project=get_config()['hail']['billing_project'],
