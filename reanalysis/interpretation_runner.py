@@ -23,6 +23,7 @@ from cloudpathlib import AnyPath, CloudPath
 import hailtop.batch as hb
 
 from cpg_utils.config import get_config
+from cpg_utils.deploy_config import get_deploy_config
 from cpg_utils.git import (
     prepare_git_job,
     get_git_commit_ref_of_current_repository,
@@ -89,7 +90,13 @@ def set_job_resources(
         job.depends_on(prior_job)
 
     if auth:
-        authenticate_cloud_credentials_in_job(job)
+        # TODO, the cloud check should really be done in CPG utils, also there's a question of whether this is actually necessary - I think it's done
+        # in GCP to handle use of AnyPath. We may not actually need this because of how HailAzureCloudPath handles auth.
+        cloud = get_deploy_config()['cloud']
+        if cloud == 'gcp':
+            authenticate_cloud_credentials_in_job(job)
+        elif cloud == 'azure':
+            raise NotImplementedError()
 
     if git:
         # copy the relevant scripts into a Driver container instance
@@ -199,7 +206,8 @@ def handle_panelapp_job(
     :param prior_job:
     """
     panelapp_job = batch.new_job(name='query panelapp')
-    set_job_resources(panelapp_job, auth=True, git=True, prior_job=prior_job)
+    auth = get_deploy_config()['cloud'] == 'gcp'
+    set_job_resources(panelapp_job, auth=auth, git=True, prior_job=prior_job)
 
     panelapp_command = f'python3 {QUERY_PANELAPP} --out_path {PANELAPP_JSON_OUT} '
     if gene_list is not None:
