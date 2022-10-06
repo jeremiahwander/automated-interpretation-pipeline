@@ -92,7 +92,7 @@ def set_job_resources(
     if auth:
         # TODO, the cloud check should really be done in CPG utils, also there's a question of whether this is actually necessary - I think it's done
         # in GCP to handle use of AnyPath. We may not actually need this because of how HailAzureCloudPath handles auth.
-        cloud = get_deploy_config()['cloud']
+        cloud = get_deploy_config().to_dict()['cloud']
         if cloud == 'gcp':
             authenticate_cloud_credentials_in_job(job)
         elif cloud == 'azure':
@@ -206,7 +206,7 @@ def handle_panelapp_job(
     :param prior_job:
     """
     panelapp_job = batch.new_job(name='query panelapp')
-    auth = get_deploy_config()['cloud'] == 'gcp'
+    auth = get_deploy_config().to_dict()['cloud'] == 'gcp'
     set_job_resources(panelapp_job, auth=auth, git=True, prior_job=prior_job)
 
     panelapp_command = f'python3 {QUERY_PANELAPP} --out_path {PANELAPP_JSON_OUT} '
