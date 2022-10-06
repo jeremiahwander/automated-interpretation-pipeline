@@ -116,7 +116,8 @@ def mt_to_vcf(batch: hb.Batch, input_file: str):
     :return:
     """
     mt_to_vcf_job = batch.new_job(name='Convert MT to VCF')
-    set_job_resources(mt_to_vcf_job, git=True, auth=True)
+    auth = get_deploy_config().to_dict()['cloud'] == 'gcp'
+    set_job_resources(mt_to_vcf_job, git=True, auth=auth)
 
     job_cmd = (
         f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
@@ -241,8 +242,9 @@ def handle_hail_filtering(
     """
 
     labelling_job = batch.new_job(name='hail filtering')
+    auth = get_deploy_config().to_dict()['cloud'] == 'gcp'
     set_job_resources(
-        labelling_job, auth=True, git=True, prior_job=prior_job, memory='16Gi'
+        labelling_job, auth=auth, git=True, prior_job=prior_job, memory='16Gi'
     )
     labelling_command = (
         f'pip install . && '
@@ -280,6 +282,7 @@ def handle_results_job(
     """
 
     results_job = batch.new_job(name='finalise_results')
+    auth = get_deploy_config().to_dict()['cloud'] == 'gcp'
     set_job_resources(results_job, auth=True, git=True, prior_job=prior_job)
     results_command = (
         'pip install . && '
@@ -300,10 +303,12 @@ def handle_results_job(
     results_job.command(results_command)
     return results_job
 
-def cpg_utils_resolve_blob_name_as_hail_path(blob_name: str) -> str:
-    account = 'sevgen002'
-    container = 'cpg-severalgenomes-main'
-    return f'hail-az://{account}/{container}/{blob_name.lstrip("/")}'
+
+# def cpg_utils_resolve_blob_name_as_hail_path(blob_name: str) -> str:
+#     account = 'sevgen002'
+#     container = 'cpg-severalgenomes-main'
+#     return f'hail-az://{account}/{container}/{blob_name.lstrip("/")}'
+
 
 @click.command()
 @click.option(
@@ -475,19 +480,19 @@ def main(
     else:
         logging.info("Using previous PanelApp JSON")
 
-    # # ----------------------- #
-    # # run hail categorisation #
-    # # ----------------------- #
-    # if not AnyPath(HAIL_VCF_OUT).exists():
-    #     logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-    #     prior_job = handle_hail_filtering(
-    #         batch=batch,
-    #         config=config_json,
-    #         prior_job=prior_job,
-    #         plink_file=pedigree_in_batch,
-    #     )
-    # else:
-    #     logging.info(f"Using previous labelled VCF: {HAIL_VCF_OUT}")
+    # ----------------------- #
+    # run hail categorisation #
+    # ----------------------- #
+    if not AnyPath(HAIL_VCF_OUT).exists():
+        logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
+        prior_job = handle_hail_filtering(
+            batch=batch,
+            config=config_json,
+            prior_job=prior_job,
+            plink_file=pedigree_in_batch,
+        )
+    else:
+        logging.info(f"Using previous labelled VCF: {HAIL_VCF_OUT}")
 
     # # read that VCF into the batch as a local file
     # labelled_vcf_in_batch = batch.read_input_group(
