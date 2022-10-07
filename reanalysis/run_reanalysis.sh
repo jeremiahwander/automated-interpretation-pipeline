@@ -9,7 +9,7 @@ analysis-runner \
   --dataset severalgenomes \
   --description "AIP runtime test" \
   -o "reanalysis/${PAP_DATE}" \
-  --access-level standard \
+  --access-level test \
   --env CPG_CONFIG_PATH="hail-az://sevgen002sa/cpg-severalgenomes-main/cpg-config.toml" \
   reanalysis/interpretation_runner.py \
     --config_json hail-az://sevgen002sa/cpg-severalgenomes-main/reanalysis/reanalysis_conf.json \
