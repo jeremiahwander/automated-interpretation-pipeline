@@ -8,9 +8,7 @@ import hailtop.batch as hb
 
 QOB_SUB_SCRIPT = os.path.join(os.path.dirname(__file__), 'test_qob_sub.py')
 
-def main(
-    blob: str
-):
+def main():
     """
     main
     """
