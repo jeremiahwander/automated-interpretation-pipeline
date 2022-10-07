@@ -3,7 +3,7 @@
 import os
 
 from cpg_utils.config import get_config
-from cpg_utils.hail_batch import remote_tmpdir, image_path
+from cpg_utils.hail_batch import remote_tmpdir, image_path, copy_common_env
 from cpg_utils.git import prepare_git_job, get_organisation_name_from_current_directory, get_repo_name_from_current_directory, get_git_commit_ref_of_current_repository
 import hailtop.batch as hb
 
@@ -34,6 +34,7 @@ def main():
         repo_name=get_repo_name_from_current_directory(),
         commit=get_git_commit_ref_of_current_repository(),
     )
+    copy_common_env(j)
 
     j.command('echo "Calling QoB test subscript."')
     j.command(f'python3 {QOB_SUB_SCRIPT}')
