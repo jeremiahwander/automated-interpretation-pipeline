@@ -1,18 +1,6 @@
-from typing import Any
 import logging
 import sys
-from argparse import ArgumentParser
-
-import hail as hl
-from peddy import Ped
-
-from cloudpathlib import AnyPath
-
-from cpg_utils import to_path
-from cpg_utils.hail_batch import init_batch, output_path
-
-from reanalysis.utils import read_json_from_path
-
+from cpg_utils.hail_batch import init_batch
 
 def main():
 
