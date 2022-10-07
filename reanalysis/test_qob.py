@@ -38,7 +38,7 @@ def main():
 
     j.command('ls /deploy-config')
     j.command('cat /deploy-config/deploy-config.json')
-    j.command('hailctl config list')
+    j.command('hailctl config set location external')
     j.command('echo "Calling QoB test subscript."')
     j.command(f'python3 {QOB_SUB_SCRIPT}')
 
