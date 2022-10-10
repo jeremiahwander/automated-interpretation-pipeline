@@ -17,6 +17,8 @@ from typing import Any
 import logging
 import sys
 from argparse import ArgumentParser
+import asyncio
+import os
 
 import hail as hl
 from peddy import Ped
@@ -24,7 +26,8 @@ from peddy import Ped
 from cloudpathlib import AnyPath
 
 from cpg_utils import to_path
-from cpg_utils.hail_batch import init_batch, output_path
+from cpg_utils.config import get_config
+from cpg_utils.hail_batch import init_batch, output_path, remote_tmpdir, genome_build
 
 from reanalysis.utils import read_json_from_path
 
@@ -843,8 +846,21 @@ def main(mt_path: str, panelapp: str, config_path: str, plink: str):
     :param plink: pedigree filepath in PLINK format
     """
 
-    # initiate Hail with defined driver spec.
-    init_batch(driver_cores=8, driver_memory='highmem')
+    # # initiate Hail with defined driver spec.
+    # init_batch(driver_cores=8, driver_memory='highmem')
+
+    asyncio.get_event_loop().run_until_complete(
+        hl.init_batch(
+            billing_project=get_config()['hail']['billing_project'], 
+            remote_tmpdir=remote_tmpdir(),
+            jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
+            driver_memory="highmem",
+            driver_cores=8,
+            token=os.environ.get('HAIL_TOKEN'),
+            default_reference=genome_build()
+        )
+    )
+
 
     # checkpoints should be kept independent
     checkpoint_number = 0
