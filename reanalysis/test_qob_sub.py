@@ -5,6 +5,8 @@ import sys
 import hail
 import asyncio
 
+from hail.utils.java import Env
+
 def main():
 
     logging.info("Initializing QoB")
@@ -12,16 +14,18 @@ def main():
     # # initiate Hail with defined driver spec.
     # init_batch(driver_cores=8, driver_memory='highmem')
 
-
-    batch = asyncio.get_event_loop().run_until_complete(
-        hail.init_batch(
-            billing_project="severalgenomes", 
-            remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail",
-            jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
-            driver_memory="highmem",
-            driver_cores=8
+    if Env._hc:
+        print("Hail Context already initialized")
+    else:
+        batch = asyncio.get_event_loop().run_until_complete(
+            hail.init_batch(
+                billing_project="severalgenomes", 
+                remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail",
+                jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
+                driver_memory="highmem",
+                driver_cores=8
+            )
         )
-    )
 
 
 
