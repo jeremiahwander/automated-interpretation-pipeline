@@ -38,7 +38,7 @@ def main():
 
     # might not be necessary, need to test.
     j.command('sed -i s/gce/external/ /deploy-config/deploy-config.json')
-    j.command('EXPORT HAIL_CLOUD=azure')
+    j.command('export HAIL_CLOUD=azure')
     j.command('echo "Calling QoB test subscript."')
     j.command(f'python3 {QOB_SUB_SCRIPT}')
 
