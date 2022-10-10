@@ -36,10 +36,10 @@ def main():
     )
     copy_common_env(j)
 
-    j.command('ls /deploy-config')
-    j.command('cat /deploy-config/deploy-config.json')
+    # might not be necessary, need to test.
     j.command('sed -i s/gce/external/ /deploy-config/deploy-config.json')
-    j.command('cat /deploy-config/deploy-config.json')
+    j.command('cat /user-tokens/tokens.json')
+    j.command('rm /user-tokens/tokens.json')
     j.command('echo "Calling QoB test subscript."')
     j.command(f'python3 {QOB_SUB_SCRIPT}')
 
