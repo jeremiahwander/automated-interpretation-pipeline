@@ -1,21 +1,18 @@
 import os
 import logging
 import sys
-from cpg_utils.hail_batch import init_batch
+# from cpg_utils.hail_batch import init_batch
+import hail
 
 def main():
 
     logging.info("Initializing QoB")
 
-    if 'HAIL_CLOUD' in os.environ.keys():
-        print(f"HAIL_CLOUD = {os.environ['HAIL_CLOUD']}")
-    else:
-        print("HAIL_CLOUD IS NOT SET.")
+    # # initiate Hail with defined driver spec.
+    # init_batch(driver_cores=8, driver_memory='highmem')
 
-    os.environ['HAIL_CLOUD'] = 'azure'
+    hail.init_batch(billing_project="severalgenomes", remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail")
 
-    # initiate Hail with defined driver spec.
-    init_batch(driver_cores=8, driver_memory='highmem')
 
 
 
