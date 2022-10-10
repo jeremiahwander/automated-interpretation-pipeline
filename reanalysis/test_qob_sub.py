@@ -7,11 +7,11 @@ def main():
 
     logging.info("Initializing QoB")
 
-    if 'HAIL_CLOUD' in os.environ.keys:
+    if 'HAIL_CLOUD' in os.environ.keys():
         print(f"HAIL_CLOUD = {os.environ['HAIL_CLOUD']}")
     else:
         print("HAIL_CLOUD IS NOT SET.")
-        
+
     os.environ['HAIL_CLOUD'] = 'azure'
 
     # initiate Hail with defined driver spec.
