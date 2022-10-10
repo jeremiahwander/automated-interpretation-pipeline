@@ -11,7 +11,7 @@ def main():
     # # initiate Hail with defined driver spec.
     # init_batch(driver_cores=8, driver_memory='highmem')
 
-    hail.init_batch(billing_project="severalgenomes", remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail")
+    batch = hail.init(backend="batch", billing_project="severalgenomes", remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail")
 
 
 
