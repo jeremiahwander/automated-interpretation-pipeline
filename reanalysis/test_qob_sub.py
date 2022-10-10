@@ -3,6 +3,7 @@ import logging
 import sys
 # from cpg_utils.hail_batch import init_batch
 import hail
+import asyncio
 
 def main():
 
@@ -11,7 +12,8 @@ def main():
     # # initiate Hail with defined driver spec.
     # init_batch(driver_cores=8, driver_memory='highmem')
 
-    batch = hail.init(backend="batch")
+
+    batch = asyncio.get_event_loop().run_until_complete(hail.init_batch(billing_project="severalgenomes", remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail"))
 
 
 
