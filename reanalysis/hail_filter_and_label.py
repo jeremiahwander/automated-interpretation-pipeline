@@ -852,7 +852,7 @@ def main(mt_path: str, panelapp: str, config_path: str, plink: str):
     asyncio.get_event_loop().run_until_complete(
         hl.init_batch(
             billing_project=get_config()['hail']['billing_project'], 
-            remote_tmpdir=remote_tmpdir(),
+            remote_tmpdir='hail-az://sevgen002sa/cpg-severalgenomes-hail',
             jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
             driver_memory="highmem",
             driver_cores=8
