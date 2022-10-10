@@ -26,7 +26,7 @@ def main():
                 jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
                 driver_memory="highmem",
                 driver_cores=8,
-                token=os.environ.get('HAIL_TOKEN')
+                default_reference="GRCh38"
             )
         )
 
