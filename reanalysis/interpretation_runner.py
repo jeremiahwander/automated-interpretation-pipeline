@@ -494,42 +494,42 @@ def main(
     else:
         logging.info(f"Using previous labelled VCF: {HAIL_VCF_OUT}")
 
-    # # read that VCF into the batch as a local file
-    # labelled_vcf_in_batch = batch.read_input_group(
-    #     vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
-    # ).vcf
+    # read that VCF into the batch as a local file
+    labelled_vcf_in_batch = batch.read_input_group(
+        vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
+    ).vcf
 
-    # # if singleton PED supplied, also run as singletons w/separate outputs
-    # analysis_rounds = [(pedigree_in_batch, 'default')]
-    # if singletons and AnyPath(singletons).exists():
-    #     pedigree_singletons = batch.read_input(singletons)
-    #     analysis_rounds.append((pedigree_singletons, 'singletons'))
-    # else:
-    #     logging.info("Skipping singleton analysis")
+    # if singleton PED supplied, also run as singletons w/separate outputs
+    analysis_rounds = [(pedigree_in_batch, 'default')]
+    if singletons and AnyPath(singletons).exists():
+        pedigree_singletons = batch.read_input(singletons)
+        analysis_rounds.append((pedigree_singletons, 'singletons'))
+    else:
+        logging.info("Skipping singleton analysis")
 
-    # # pointing this analysis at the updated config file, including input metadata
-    # for relationships, analysis_index in analysis_rounds:
-    #     logging.info(f'running analysis in {analysis_index} mode')
-    #     _results_job = handle_results_job(
-    #         batch=batch,
-    #         config=output_path('latest_config.json'),
-    #         labelled_vcf=labelled_vcf_in_batch,
-    #         pedigree=relationships,
-    #         output_dict=output_dict[analysis_index],
-    #         prior_job=prior_job,
-    #     )
+    # pointing this analysis at the updated config file, including input metadata
+    for relationships, analysis_index in analysis_rounds:
+        logging.info(f'running analysis in {analysis_index} mode')
+        _results_job = handle_results_job(
+            batch=batch,
+            config=output_path('latest_config.json'),
+            labelled_vcf=labelled_vcf_in_batch,
+            pedigree=relationships,
+            output_dict=output_dict[analysis_index],
+            prior_job=prior_job,
+        )
 
-    # # save the json file into the batch output, with latest run details
-    # with AnyPath(output_path('latest_config.json')).open('w') as handle:
-    #     json.dump(config_dict, handle , indent=True)
+    # save the json file into the batch output, with latest run details
+    with AnyPath(output_path('latest_config.json')).open('w') as handle:
+        json.dump(config_dict, handle , indent=True)
 
-    # # write pedigree content to the output folder
-    # with AnyPath(output_path('latest_pedigree.fam')).open('w') as handle:
-    #     handle.writelines(AnyPath(plink_file).open().readlines())
+    # write pedigree content to the output folder
+    with AnyPath(output_path('latest_pedigree.fam')).open('w') as handle:
+        handle.writelines(AnyPath(plink_file).open().readlines())
 
-    # if singletons:
-    #     with AnyPath(output_path('latest_singletons.fam')).open('w') as handle:
-    #         handle.writelines(AnyPath(singletons).open().readlines())
+    if singletons:
+        with AnyPath(output_path('latest_singletons.fam')).open('w') as handle:
+            handle.writelines(AnyPath(singletons).open().readlines())
 
     batch.run(wait=False)
 
