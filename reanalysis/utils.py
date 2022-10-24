@@ -75,7 +75,7 @@ def init_batch(driver_memory: Optional[str] = 'highmem' , driver_cores: Optional
     asyncio.get_event_loop().run_until_complete(
         hl.init_batch(
             billing_project=get_config()['hail']['billing_project'], 
-            remote_tmpdir=f"{get_config()['workflow']['dataset_path']}-hail",
+            remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail",
             jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
             driver_memory=driver_memory,
             driver_cores=driver_cores
