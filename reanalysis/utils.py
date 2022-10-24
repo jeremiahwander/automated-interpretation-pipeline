@@ -8,12 +8,16 @@ from dataclasses import dataclass, is_dataclass
 from enum import Enum
 from itertools import combinations_with_replacement
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Union, Optional
 
+import os
 import json
 import logging
 import re
 import requests
+
+import asyncio
+import hail as hl
 
 from cpg_utils import to_path
 from cpg_utils.config import get_config
@@ -52,6 +56,31 @@ class FileTypes(Enum):
     VCF = '.vcf'
     VCF_GZ = '.vcf.gz'
     VCF_BGZ = '.vcf.bgz'
+
+
+def dataset_path(suffix: str,
+    category: Optional[str] = None
+) -> str:
+    category = f'-{category}' if category else ''
+    return os.path.join(f"{get_config()['workflow']['dataset_path']}{category}", suffix)
+
+
+def output_path(suffix: str, category: Optional[str] = None) -> str:
+    return dataset_path(
+        os.path.join(get_config()['workflow']['output_prefix'], suffix), category
+    )
+
+
+def init_batch(driver_memory: Optional[str] = 'highmem' , driver_cores: Optional[int] = 8) -> None:
+    asyncio.get_event_loop().run_until_complete(
+        hl.init_batch(
+            billing_project=get_config()['hail']['billing_project'], 
+            remote_tmpdir=f"{get_config()['workflow']['datset_path']}-hail",
+            jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
+            driver_memory=driver_memory,
+            driver_cores=driver_cores
+        )
+    )
 
 
 def identify_file_type(file_path: str) -> FileTypes | Exception:

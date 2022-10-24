@@ -40,21 +40,8 @@ from cpg_utils.hail_batch import (
 )
 
 import annotation
-from utils import FileTypes, identify_file_type
+from reanalysis.utils import FileTypes, identify_file_type, output_path
 from vep.jobs import vep_jobs, SequencingType
-
-from typing import Optional
-
-def dataset_path(suffix: str,
-    category: Optional[str] = None
-) -> str:
-    category = f'-{category}' if category else ''
-    return os.path.join(f"{get_config()['workflow']['dataset_path']}{category}", suffix)
-
-def output_path(suffix: str, category: Optional[str] = None) -> str:
-    return dataset_path(
-        os.path.join(get_config()['workflow']['output_prefix'], suffix), category
-    )
 
 # exact time that this run occurred
 EXECUTION_TIME = f'{datetime.now():%Y-%m-%d %H:%M}'
@@ -452,30 +439,28 @@ def main(
 
     # endregion
 
-    #  region: query panelapp
-    print(f'print: PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}')
-    logging.info(f'logging: PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}')
-    # if (not to_path(f'{PANELAPP_JSON_OUT}.json').exists()) or (
-    #     participant_panels
-    #     and not to_path(f'{PANELAPP_JSON_OUT}_per_panel.json').exists()
-    # ):
-    #     prior_job = handle_panelapp_job(
-    #         batch=batch,
-    #         extra_panels=extra_panels,
-    #         participant_panels=participant_panels,
-    #         prior_job=prior_job,
-    #     )
-    # # endregion
+    # region: query panelapp
+    if (not to_path(f'{PANELAPP_JSON_OUT}.json').exists()) or (
+        participant_panels
+        and not to_path(f'{PANELAPP_JSON_OUT}_per_panel.json').exists()
+    ):
+        prior_job = handle_panelapp_job(
+            batch=batch,
+            extra_panels=extra_panels,
+            participant_panels=participant_panels,
+            prior_job=prior_job,
+        )
+    # endregion
 
-    # # region: hail categorisation
-    # if not to_path(HAIL_VCF_OUT).exists():
-    #     logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-    #     prior_job = handle_hail_filtering(
-    #         batch=batch,
-    #         prior_job=prior_job,
-    #         plink_file=pedigree_in_batch,
-    #     )
-    # # endregion
+    # region: hail categorisation
+    if not to_path(HAIL_VCF_OUT).exists():
+        logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
+        prior_job = handle_hail_filtering(
+            batch=batch,
+            prior_job=prior_job,
+            plink_file=pedigree_in_batch,
+        )
+    # endregion
 
     # # read VCF into the batch as a local file
     # labelled_vcf_in_batch = batch.read_input_group(
