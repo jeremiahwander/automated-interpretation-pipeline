@@ -17,7 +17,7 @@ from peddy.peddy import Ped, PHENOTYPE
 
 from cpg_utils.config import get_config
 
-from reanalysis.utils import (
+from .utils import (
     AbstractVariant,
     CompHetDict,
     ReportedVariant,

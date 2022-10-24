@@ -27,7 +27,7 @@ from cpg_utils import to_path
 from cpg_utils.config import get_config
 
 from reanalysis.moi_tests import MOIRunner, PEDDY_AFFECTED
-from reanalysis.utils import (
+from .utils import (
     canonical_contigs_from_vcf,
     find_comp_hets,
     gather_gene_dict_from_contig,

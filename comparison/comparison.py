@@ -38,7 +38,7 @@ from reanalysis.hail_filter_and_label import (
     PATHOGENIC,
 )
 
-from reanalysis.utils import read_json_from_path, canonical_contigs_from_vcf
+from .utils import read_json_from_path, canonical_contigs_from_vcf
 
 SAMPLE_NUM_RE = re.compile(r'sample_[0-9]+')
 SAMPLE_ALT_TEMPLATE = 'num_alt_alleles_{}'

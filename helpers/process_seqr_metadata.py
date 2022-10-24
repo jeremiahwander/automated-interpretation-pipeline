@@ -16,7 +16,7 @@ import json
 import os
 from argparse import ArgumentParser
 
-from reanalysis.utils import read_json_from_path
+from .utils import read_json_from_path
 
 
 def get_seqr_details(seqr_meta: str) -> dict[str, dict[str, str]]:

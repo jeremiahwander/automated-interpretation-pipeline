@@ -12,7 +12,7 @@ from peddy.peddy import Ped
 from cpg_utils import to_path
 from cpg_utils.config import get_config
 
-from reanalysis.utils import read_json_from_path
+from .utils import read_json_from_path
 
 
 GNOMAD_TEMPLATE = (
