@@ -447,81 +447,81 @@ def main(
 
     #  region: query panelapp
     logging.info(f'PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}')
-    if (not to_path(f'{PANELAPP_JSON_OUT}.json').exists()) or (
-        participant_panels
-        and not to_path(f'{PANELAPP_JSON_OUT}_per_panel.json').exists()
-    ):
-        prior_job = handle_panelapp_job(
-            batch=batch,
-            extra_panels=extra_panels,
-            participant_panels=participant_panels,
-            prior_job=prior_job,
-        )
-    # endregion
+    # if (not to_path(f'{PANELAPP_JSON_OUT}.json').exists()) or (
+    #     participant_panels
+    #     and not to_path(f'{PANELAPP_JSON_OUT}_per_panel.json').exists()
+    # ):
+    #     prior_job = handle_panelapp_job(
+    #         batch=batch,
+    #         extra_panels=extra_panels,
+    #         participant_panels=participant_panels,
+    #         prior_job=prior_job,
+    #     )
+    # # endregion
 
-    # region: hail categorisation
-    if not to_path(HAIL_VCF_OUT).exists():
-        logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-        prior_job = handle_hail_filtering(
-            batch=batch,
-            prior_job=prior_job,
-            plink_file=pedigree_in_batch,
-        )
-    # endregion
+    # # region: hail categorisation
+    # if not to_path(HAIL_VCF_OUT).exists():
+    #     logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
+    #     prior_job = handle_hail_filtering(
+    #         batch=batch,
+    #         prior_job=prior_job,
+    #         plink_file=pedigree_in_batch,
+    #     )
+    # # endregion
 
-    # read VCF into the batch as a local file
-    labelled_vcf_in_batch = batch.read_input_group(
-        vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
-    ).vcf
+    # # read VCF into the batch as a local file
+    # labelled_vcf_in_batch = batch.read_input_group(
+    #     vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi'
+    # ).vcf
 
-    # region: singleton decisions
-    # if singleton PED supplied, also run as singletons w/separate outputs
-    analysis_rounds = [(pedigree_in_batch, 'default')]
-    if singletons and to_path(singletons).exists():
-        to_path(singletons).copy(
-            output_path(
-                f'singletons_{EXECUTION_TIME}.fam',
-                get_config()['buckets'].get('analysis_suffix'),
-            )
-        )
-        pedigree_singletons = batch.read_input(singletons)
-        analysis_rounds.append((pedigree_singletons, 'singletons'))
-    # endregion
+    # # region: singleton decisions
+    # # if singleton PED supplied, also run as singletons w/separate outputs
+    # analysis_rounds = [(pedigree_in_batch, 'default')]
+    # if singletons and to_path(singletons).exists():
+    #     to_path(singletons).copy(
+    #         output_path(
+    #             f'singletons_{EXECUTION_TIME}.fam',
+    #             get_config()['buckets'].get('analysis_suffix'),
+    #         )
+    #     )
+    #     pedigree_singletons = batch.read_input(singletons)
+    #     analysis_rounds.append((pedigree_singletons, 'singletons'))
+    # # endregion
 
-    # region: run results job
-    # pointing this analysis at the updated config file, including input metadata
-    for relationships, analysis_index in analysis_rounds:
-        logging.info(f'running analysis in {analysis_index} mode')
-        _results_job = handle_results_job(
-            batch=batch,
-            labelled_vcf=labelled_vcf_in_batch,
-            pedigree=relationships,
-            output_dict=output_dict[analysis_index],
-            prior_job=prior_job,
-            participant_panels=participant_panels,
-            input_path=input_path,
-        )
-    # endregion
+    # # region: run results job
+    # # pointing this analysis at the updated config file, including input metadata
+    # for relationships, analysis_index in analysis_rounds:
+    #     logging.info(f'running analysis in {analysis_index} mode')
+    #     _results_job = handle_results_job(
+    #         batch=batch,
+    #         labelled_vcf=labelled_vcf_in_batch,
+    #         pedigree=relationships,
+    #         output_dict=output_dict[analysis_index],
+    #         prior_job=prior_job,
+    #         participant_panels=participant_panels,
+    #         input_path=input_path,
+    #     )
+    # # endregion
 
-    # region: copy data out
-    # if we ran with per-participant panel data, copy to output folder
-    # include datetime to differentiate output files and prevent clashes
-    if participant_panels:
-        to_path(participant_panels).copy(
-            output_path(
-                f'pid_to_panels_{EXECUTION_TIME}.json',
-                get_config()['buckets'].get('analysis_suffix'),
-            )
-        )
+    # # region: copy data out
+    # # if we ran with per-participant panel data, copy to output folder
+    # # include datetime to differentiate output files and prevent clashes
+    # if participant_panels:
+    #     to_path(participant_panels).copy(
+    #         output_path(
+    #             f'pid_to_panels_{EXECUTION_TIME}.json',
+    #             get_config()['buckets'].get('analysis_suffix'),
+    #         )
+    #     )
 
-    # write pedigree content to the output folder
-    to_path(pedigree).copy(
-        output_path(
-            f'pedigree_{EXECUTION_TIME}.fam',
-            get_config()['buckets'].get('analysis_suffix'),
-        )
-    )
-    # endregion
+    # # write pedigree content to the output folder
+    # to_path(pedigree).copy(
+    #     output_path(
+    #         f'pedigree_{EXECUTION_TIME}.fam',
+    #         get_config()['buckets'].get('analysis_suffix'),
+    #     )
+    # )
+    # # endregion
 
     batch.run(wait=False)
 
