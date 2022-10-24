@@ -34,7 +34,6 @@ from cpg_utils.git import (
 from cpg_utils.hail_batch import (
     authenticate_cloud_credentials_in_job,
     copy_common_env,
-    output_path,
     query_command,
     remote_tmpdir,
     image_path,
@@ -43,6 +42,19 @@ from cpg_utils.hail_batch import (
 import annotation
 from utils import FileTypes, identify_file_type
 from vep.jobs import vep_jobs, SequencingType
+
+from typing import Optional
+
+def dataset_path(suffix: str,
+    category: Optional[str] = None
+) -> str:
+    category = f'-{category}' if category else ''
+    return os.path.join(f"{get_config()['workflow']['dataset_path']}{category}", suffix)
+
+def output_path(suffix: str, category: Optional[str] = None) -> str:
+    return dataset_path(
+        os.path.join(get_config()['workflow']['output_prefix'], suffix), category
+    )
 
 # exact time that this run occurred
 EXECUTION_TIME = f'{datetime.now():%Y-%m-%d %H:%M}'
