@@ -8,3 +8,5 @@ forbidden = ""
 
 [workflow]
 dataset = "cohort"
+path_scheme = "hail-az"
+dataset_path = "hail-az://sevgen002sa/cpg-severalgenomes-test"
