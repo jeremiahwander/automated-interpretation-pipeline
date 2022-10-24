@@ -20,7 +20,7 @@ from argparse import ArgumentParser
 import hail as hl
 
 from cpg_utils import to_path
-from .utils import output_path, init_batch
+from utils import output_path, init_batch
 
 def main(mt: str, write_path: str):
     """

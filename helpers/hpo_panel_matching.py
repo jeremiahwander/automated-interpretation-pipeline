@@ -21,7 +21,7 @@ from sample_metadata.apis import SeqrApi
 from cpg_utils import to_path
 
 from helpers.pedigree_from_sample_metadata import ext_to_int_sample_map
-from .utils import get_json_response
+from reanalysis.utils import get_json_response
 
 
 MAX_DEPTH: int = 3
