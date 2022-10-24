@@ -446,7 +446,8 @@ def main(
     # endregion
 
     #  region: query panelapp
-    logging.info(f'PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}')
+    print(f'print: PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}')
+    logging.info(f'logging: PANELAPP_JSON_OUT: {PANELAPP_JSON_OUT}')
     # if (not to_path(f'{PANELAPP_JSON_OUT}.json').exists()) or (
     #     participant_panels
     #     and not to_path(f'{PANELAPP_JSON_OUT}_per_panel.json').exists()
