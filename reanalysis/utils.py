@@ -58,19 +58,6 @@ class FileTypes(Enum):
     VCF_BGZ = '.vcf.bgz'
 
 
-def dataset_path(suffix: str,
-    category: Optional[str] = None
-) -> str:
-    category = f'-{category}' if category else ''
-    return os.path.join(f"{get_config()['workflow']['dataset_path']}{category}", suffix)
-
-
-def output_path(suffix: str, category: Optional[str] = None) -> str:
-    return dataset_path(
-        os.path.join(get_config()['workflow']['output_prefix'], suffix), category
-    )
-
-
 def init_batch(driver_memory: Optional[str] = 'highmem' , driver_cores: Optional[int] = 8) -> None:
     asyncio.get_event_loop().run_until_complete(
         hl.init_batch(

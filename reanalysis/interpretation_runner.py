@@ -37,10 +37,11 @@ from cpg_utils.hail_batch import (
     query_command,
     remote_tmpdir,
     image_path,
+    output_path
 )
 
 import annotation
-from utils import FileTypes, identify_file_type, output_path
+from utils import FileTypes, identify_file_type
 from vep.jobs import vep_jobs, SequencingType
 
 # exact time that this run occurred
