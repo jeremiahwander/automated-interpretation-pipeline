@@ -23,9 +23,9 @@ from peddy import Ped
 
 from cpg_utils import to_path
 from cpg_utils.config import get_config
-from cpg_utils.hail_batch import output_path
+from cpg_utils.hail_batch import output_path, init_batch
 
-from utils import read_json_from_path, init_batch
+from utils import read_json_from_path
 
 
 # set some Hail constants

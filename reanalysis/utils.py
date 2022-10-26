@@ -58,18 +58,6 @@ class FileTypes(Enum):
     VCF_BGZ = '.vcf.bgz'
 
 
-def init_batch(driver_memory: Optional[str] = 'highmem' , driver_cores: Optional[int] = 8) -> None:
-    asyncio.get_event_loop().run_until_complete(
-        hl.init_batch(
-            billing_project=get_config()['hail']['billing_project'], 
-            remote_tmpdir="hail-az://sevgen002sa/cpg-severalgenomes-hail",
-#            jar_url="hail-az://hailms02batch/query/jars/1078abac8b8e1c14fe7743aa58bc25118b4108de.jar",
-            driver_memory=driver_memory,
-            driver_cores=driver_cores
-        )
-    )
-
-
 def identify_file_type(file_path: str) -> FileTypes | Exception:
     """
     return type of the file, if present in FileTypes enum
