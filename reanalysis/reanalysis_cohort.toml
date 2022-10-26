@@ -10,4 +10,4 @@ forbidden = ""
 dataset = "cohort"
 
 [images]
-hail = "driver:dfb387c-hail-3c66763"
+hail = "driver:df86f23-hail-ee65efc"
