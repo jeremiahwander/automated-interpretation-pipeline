@@ -445,22 +445,36 @@ def main(
         participant_panels
         and not to_path(f'{PANELAPP_JSON_OUT}_per_panel.json').exists()
     ):
-        prior_job = handle_panelapp_job(
-            batch=batch,
-            extra_panels=extra_panels,
-            participant_panels=participant_panels,
-            prior_job=prior_job,
-        )
+        print("Configuring panelapp job")
+        print(f"PANELAPP_JSON_OUT = {PANELAPP_JSON_OUT}")
+        print(f"  does it exist {to_path(f'{PANELAPP_JSON_OUT}.json').exists()}")
+
+        # prior_job = handle_panelapp_job(
+        #     batch=batch,
+        #     extra_panels=extra_panels,
+        #     participant_panels=participant_panels,
+        #     prior_job=prior_job,
+        # )
+    else:
+        print("Skipping configuration of panelapp job")
+
     # endregion
 
     # region: hail categorisation
     if not to_path(HAIL_VCF_OUT).exists():
-        logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-        prior_job = handle_hail_filtering(
-            batch=batch,
-            prior_job=prior_job,
-            plink_file=pedigree_in_batch,
-        )
+        print("Configuring hail categorization job")
+        print(f"HAIL_VCF_OUT = {HAIL_VCF_OUT}")
+        print(f" does it exist {to_path(HAIL_VCF_OUT).exists()}")
+
+        # logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
+        # prior_job = handle_hail_filtering(
+        #     batch=batch,
+        #     prior_job=prior_job,
+        #     plink_file=pedigree_in_batch,
+        # )
+    else:
+        print("Skipping configuration of hail categorization group")
+        
     # endregion
 
     # read VCF into the batch as a local file
