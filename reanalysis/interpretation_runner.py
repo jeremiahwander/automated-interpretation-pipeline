@@ -288,7 +288,7 @@ def handle_results_job(
 
     results_job = batch.new_job(name='finalise_results')
     auth = get_deploy_config().to_dict()['cloud'] == 'gcp'
-    set_job_resources(results_job, auth=True, git=True, prior_job=prior_job)
+    set_job_resources(results_job, auth=auth, git=True, prior_job=prior_job)
 
     gene_filter_files = (
         (
