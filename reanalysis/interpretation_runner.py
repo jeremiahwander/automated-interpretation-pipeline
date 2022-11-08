@@ -449,12 +449,12 @@ def main(
         print(f"PANELAPP_JSON_OUT = {PANELAPP_JSON_OUT}")
         print(f"  does it exist {to_path(f'{PANELAPP_JSON_OUT}.json').exists()}")
 
-        # prior_job = handle_panelapp_job(
-        #     batch=batch,
-        #     extra_panels=extra_panels,
-        #     participant_panels=participant_panels,
-        #     prior_job=prior_job,
-        # )
+        prior_job = handle_panelapp_job(
+            batch=batch,
+            extra_panels=extra_panels,
+            participant_panels=participant_panels,
+            prior_job=prior_job,
+        )
     else:
         print("Skipping configuration of panelapp job")
 
@@ -467,11 +467,11 @@ def main(
         print(f" does it exist {to_path(HAIL_VCF_OUT).exists()}")
 
         # logging.info(f'The Labelled VCF "{HAIL_VCF_OUT}" doesn\'t exist; regenerating')
-        # prior_job = handle_hail_filtering(
-        #     batch=batch,
-        #     prior_job=prior_job,
-        #     plink_file=pedigree_in_batch,
-        # )
+        prior_job = handle_hail_filtering(
+            batch=batch,
+            prior_job=prior_job,
+            plink_file=pedigree_in_batch,
+        )
     else:
         print("Skipping configuration of hail categorization group")
         
