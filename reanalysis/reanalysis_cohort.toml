@@ -11,3 +11,8 @@ dataset = "cohort"
 
 [images]
 hail = "hail-driver:latest"
+vep = "vep:105.0"
+
+[references]
+genome_build = 'GRCh38'
+vep_mount = "vep/105.0"
