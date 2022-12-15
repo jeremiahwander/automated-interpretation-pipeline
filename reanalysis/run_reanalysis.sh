@@ -9,10 +9,10 @@ analysis-runner \
   --config reanalysis/reanalysis_global.toml \
   --config reanalysis/reanalysis_cohort.toml \
   --image azcpg001acr.azurecr.io/cpg-common/images/cpg_workflows \
-  --dataset severalgenomes \
-  --description "AIP run" \
+  --dataset rgp \
+  --description "AIP run RGP" \
   -o "reanalysis/${DATE}" \
   --access-level test \
   reanalysis/interpretation_runner.py \
-    -i hail-az://sevgen002sa/test/reanalysis/2022-11-16/prior_to_annotation.vcf.bgz \
-    --pedigree hail-az://sevgen002sa/test/reanalysis/pedigree.fam
+    -i hail-az://raregen001sa/test/inputs/joint-called-vcf_20221114/RGP_microsoft_output_111422.vcf.bgz \
+    --pedigree hail-az://raregen001sa/test/inputs/joint-called-vcf_20221114/RGP_Cases_for_MSFT_AIP_v0_trial.xlsx.fam

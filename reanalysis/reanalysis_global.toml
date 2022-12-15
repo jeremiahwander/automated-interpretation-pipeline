@@ -4,6 +4,12 @@ web = "hail-az://sevgen002sa/test-web"
 analysis = "hail-az://sevgen002sa/test-analysis"
 tmp = "hail-az://sevgen002sa/test-tmp"
 
+[storage.rgp]
+default = "hail-az://raregen001sa/test"
+web = "hail-az://raregen001sa/test-web"
+analysis = "hail-az://raregen001sa/test-analysis"
+tmp = "hail-az://raregen001sa/test-tmp"
+
 [buckets]
 web_suffix = "web"
 tmp_suffix = "tmp"
