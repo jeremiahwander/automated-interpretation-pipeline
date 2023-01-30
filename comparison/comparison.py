@@ -165,9 +165,9 @@ def common_format_aip(results_dict: dict[str, Any]) -> CommonDict:
     sample_dict: CommonDict = defaultdict(list)
 
     # collect all per-sample results into a separate index
-    for sample, variants in results_dict.items():
+    for sample, variants in results_dict['results'].items():
 
-        for var in variants:
+        for var in variants['variants']:
             coords = var['var_data']['coords']
             sample_dict[sample].append(
                 CommonFormatResult(
