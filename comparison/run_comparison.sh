@@ -9,6 +9,7 @@ PAP_DATE=${1:-$(date +%F)}
 analysis-runner \
   --config reanalysis/reanalysis_global.toml \
   --dataset rgp \
+  --image azcpg001acr.azurecr.io/cpg-common/images/cpg_aip \
   --description "Run Comparison" \
   -o "reanalysis/comparison/${PAP_DATE}" \
   --access-level test \

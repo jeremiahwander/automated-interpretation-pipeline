@@ -21,7 +21,8 @@ python3 reanalysis/generate_workflow_config.py \
   -o "${CONFIG_PATH}"
   
 export CPG_CONFIG_PATH=${CONFIG_PATH}
-python3 reanalysis/interpretation_runner.py \
-  -i hail-az://raregen001sa/test/inputs/rgp/rgp_train.vcf.bgz \
-  --pedigree hail-az://raregen001sa/test/inputs/rgp/rgp_train.fam \
-  --participant_panels hail-az://raregen001sa/test/inputs/rgp/rgp_hpo_based_panels.json
+python3 comparison/comparison_wrapper.py \
+  --results hail-az://raregen001sa/test-analysis/reanalysis_train/2023-01-26/ \
+  --seqr hail-az://raregen001sa/test/inputs/rgp/saved_known_gene_for_phenotype_variants_rare_genomes_project_genomes_hmb.tsv \
+  --mt hail-az://raregen001sa/test/reanalysis_train/2023-01-26/annotated_variants.mt \
+  --fam_name pedigree_2023-01-26_21:56.fam
