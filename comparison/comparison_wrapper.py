@@ -19,6 +19,7 @@ from cpg_utils.git import (
     get_git_commit_ref_of_current_repository,
     get_organisation_name_from_current_directory,
     get_repo_name_from_current_directory,
+    get_git_root_relative_path_from_absolute
 )
 from cpg_utils.hail_batch import (
     authenticate_cloud_credentials_in_job,
@@ -29,10 +30,7 @@ from cpg_utils.hail_batch import (
 )
 from cpg_utils.config import get_config
 
-
-# local script references
-COMPARISON_SCRIPT = os.path.join(os.path.dirname(__file__), 'comparison.py')
-
+import comparison
 
 def main(results_folder: str, seqr: str, mt: str):
     """
@@ -54,21 +52,21 @@ def main(results_folder: str, seqr: str, mt: str):
     comp_job = batch.new_job(name='Run Comparison')
 
     # set reasonable job resources
-    comp_job.cpu(4).image(image_path('hail')).memory('standard').storage('50G')
+    comp_job.cpu(4).image(image_path('cpg_aip')).memory('standard').storage('50G')
 
-    # run gcloud authentication
-    authenticate_cloud_credentials_in_job(comp_job)
+    # # run gcloud authentication
+    # authenticate_cloud_credentials_in_job(comp_job)
 
-    # copy in Env Variables from current config
-    copy_common_env(comp_job)
+    # # copy in Env Variables from current config
+    # copy_common_env(comp_job)
 
-    # copy the relevant scripts into a Driver container instance
-    prepare_git_job(
-        job=comp_job,
-        organisation=get_organisation_name_from_current_directory(),
-        repo_name=get_repo_name_from_current_directory(),
-        commit=get_git_commit_ref_of_current_repository(),
-    )
+    # # copy the relevant scripts into a Driver container instance
+    # prepare_git_job(
+    #     job=comp_job,
+    #     organisation=get_organisation_name_from_current_directory(),
+    #     repo_name=get_repo_name_from_current_directory(),
+    #     commit=get_git_commit_ref_of_current_repository(),
+    # )
 
     # need to localise the VCF + index
     run_vcf = os.path.join(results_folder, 'hail_categorised.vcf.bgz')
@@ -77,9 +75,9 @@ def main(results_folder: str, seqr: str, mt: str):
     )
     ped_in_batch = batch.read_input(os.path.join(results_folder, 'latest_pedigree.fam'))
 
+    script_path = get_git_root_relative_path_from_absolute(comparison.__file__)
     results_command = (
-        'pip install . && '
-        f'python3 {COMPARISON_SCRIPT} '
+        f'python3 {script_path} '
         f'--results_folder {results_folder} '
         f'--pedigree {ped_in_batch} '
         f'--seqr {seqr} '
