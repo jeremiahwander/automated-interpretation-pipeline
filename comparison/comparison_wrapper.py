@@ -30,6 +30,8 @@ from cpg_utils.hail_batch import (
 )
 from cpg_utils.config import get_config
 
+# Namespacing gets weird here because both the package and the module share the same name. When running via shell script
+# this will import the module, thus it follows a different pattern from reanalysis/interpretation_runner.py.
 import comparison
 
 def main(results_folder: str, seqr: str, mt: str, fam_name: str):
@@ -59,14 +61,6 @@ def main(results_folder: str, seqr: str, mt: str, fam_name: str):
 
     # # copy in Env Variables from current config
     # copy_common_env(comp_job)
-
-    # # copy the relevant scripts into a Driver container instance
-    # prepare_git_job(
-    #     job=comp_job,
-    #     organisation=get_organisation_name_from_current_directory(),
-    #     repo_name=get_repo_name_from_current_directory(),
-    #     commit=get_git_commit_ref_of_current_repository(),
-    # )
 
     # need to localise the VCF + index
     run_vcf = os.path.join(results_folder, 'hail_categorised.vcf.bgz')
