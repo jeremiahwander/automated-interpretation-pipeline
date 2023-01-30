@@ -32,7 +32,7 @@ from cpg_utils.config import get_config
 
 import comparison
 
-def main(results_folder: str, seqr: str, mt: str):
+def main(results_folder: str, seqr: str, mt: str, fam_name: str):
     """
     main method, which runs the AIP comparison
     :param results_folder:
@@ -73,7 +73,7 @@ def main(results_folder: str, seqr: str, mt: str):
     vcf_in_batch = batch.read_input_group(
         **{'vcf.bgz': run_vcf, 'vcf.bgz.tbi': run_vcf + '.tbi'}
     )
-    ped_in_batch = batch.read_input(os.path.join(results_folder, 'latest_pedigree.fam'))
+    ped_in_batch = batch.read_input(os.path.join(results_folder, fam_name))
 
     script_path = get_git_root_relative_path_from_absolute(comparison.__file__)
     results_command = (
@@ -102,5 +102,6 @@ if __name__ == '__main__':
     parser.add_argument('--results', help='results folder', required=True)
     parser.add_argument('--seqr', help='Flagged Seqr variants', required=True)
     parser.add_argument('--mt', help='Hail MT of annotated variants', required=True)
+    parser.add_argument('--fam_name', help='pedigree filename within results folder (defaults to "latest_pedigree.fam")', default="latest_pedigree.fam")
     args = parser.parse_args()
-    main(results_folder=args.results, seqr=args.seqr, mt=args.mt)
+    main(results_folder=args.results, seqr=args.seqr, mt=args.mt, fam_name=args.fam_name)
