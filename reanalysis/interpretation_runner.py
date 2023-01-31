@@ -306,7 +306,7 @@ def main(
 
     logging.info('Starting the reanalysis batch')
 
-    # region: output files lookup
+    # region : output files lookup
     # separate paths for familial and singleton analysis
     output_dict = {
         'default': {
@@ -323,7 +323,7 @@ def main(
     # find clinvar table, and re-process if required
     prior_job, clinvar_table = handle_clinvar()
 
-    # region: MT to VCF
+    # region : MT to VCF
     # determine the input type - if MT, decompose to VCF prior to annotation
     input_file_type = identify_file_type(input_path)
     assert input_file_type in [
@@ -349,7 +349,7 @@ def main(
             input_path = INPUT_AS_VCF
     # endregion
 
-    # region: split & annotate VCF
+    # region : split & annotate VCF
     if not to_path(ANNOTATED_MT).exists():
         # need to run the annotation phase
         # uses default values from RefData
@@ -404,7 +404,7 @@ def main(
 
     # endregion
 
-    #  region: query panelapp
+    #  region : query panelapp
     if not to_path(PANELAPP_JSON_OUT).exists():
         prior_job = handle_panelapp_job(
             participant_panels=participant_panels,
@@ -416,7 +416,7 @@ def main(
     # read the ped file into the Batch
     pedigree_in_batch = get_batch().read_input(pedigree)
 
-    # region: hail categorisation
+    # region : hail categorisation
     if not to_path(HAIL_VCF_OUT).exists():
         logging.info(f"The Labelled VCF {HAIL_VCF_OUT!r} doesn't exist; regenerating")
         prior_job = handle_hail_filtering(
@@ -429,7 +429,7 @@ def main(
         get_batch().read_input_group(vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi').vcf
     )
 
-    # region: singleton decisions
+    # region : singleton decisions
     # if singleton PED supplied, also run as singletons w/separate outputs
     analysis_rounds = [(pedigree_in_batch, 'default')]
     if singletons and to_path(singletons).exists():
@@ -440,7 +440,7 @@ def main(
         analysis_rounds.append((pedigree_singletons, 'singletons'))
     # endregion
 
-    # region: run results job
+    # region : run results job
     # pointing this analysis at the updated config file, including input metadata
     for relationships, analysis_index in analysis_rounds:
         logging.info(f'running analysis in {analysis_index} mode')
@@ -454,7 +454,7 @@ def main(
         )
     # endregion
 
-    # region: copy data out
+    # region : copy data out
     # if we ran with per-participant panel data, copy to output folder
     # include datetime to differentiate output files and prevent clashes
     if participant_panels:
