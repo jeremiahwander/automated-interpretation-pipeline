@@ -805,7 +805,7 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
         sys.exit(0)
 
     # load and digest panel data
-    panel_dict = read_json_from_path(os.path.join(results_folder, 'panelapp_data.json'))
+    panel_dict = read_json_from_path(os.path.join(results_folder, 'panelapp_data.json'))['genes']
     green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
 
     # if we had discrepancies, bin into classified and misc.
@@ -823,29 +823,29 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
         for variant in in_vcf[sample]:
             logging.info(f'\tVariant {variant} requires MOI checking')
 
-    # if there were any variants missing from the VCF, attempt to find them in the MT
-    if len(not_in_vcf) == 0:
-        sys.exit(0)
+    # # if there were any variants missing from the VCF, attempt to find them in the MT
+    # if len(not_in_vcf) == 0:
+    #     sys.exit(0)
 
-    # if we need to check the MT, start Hail Query
-    init_batch(driver_cores=8, driver_memory='highmem')
+    # # if we need to check the MT, start Hail Query
+    # init_batch(driver_cores=8, driver_memory='highmem')
 
-    # read in the MT
-    matrix = hl.read_matrix_table(mt)
+    # # read in the MT
+    # matrix = hl.read_matrix_table(mt)
 
-    not_present, untiered = check_mt(
-        matrix=matrix,
-        variants=not_in_vcf,
-        green_genes=green_genes,
-        new_genes=new_genes,
-    )
-    if untiered:
-        with AnyPath(f'{output}_untiered.json').open('w') as handle:
-            json.dump(untiered, handle, default=str, indent=4)
+    # not_present, untiered = check_mt(
+    #     matrix=matrix,
+    #     variants=not_in_vcf,
+    #     green_genes=green_genes,
+    #     new_genes=new_genes,
+    # )
+    # if untiered:
+    #     with AnyPath(f'{output}_untiered.json').open('w') as handle:
+    #         json.dump(untiered, handle, default=str, indent=4)
 
-    if not_present:
-        with AnyPath(f'{output}_missing.json').open('w') as handle:
-            json.dump(not_present, handle, default=str, indent=4)
+    # if not_present:
+    #     with AnyPath(f'{output}_missing.json').open('w') as handle:
+    #         json.dump(not_present, handle, default=str, indent=4)
 
 
 if __name__ == '__main__':
