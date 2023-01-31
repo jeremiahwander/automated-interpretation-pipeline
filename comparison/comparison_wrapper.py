@@ -60,7 +60,7 @@ def main(results_folder: str, seqr: str, mt: str, fam_name: str):
     # authenticate_cloud_credentials_in_job(comp_job)
 
     # # copy in Env Variables from current config
-    # copy_common_env(comp_job)
+    copy_common_env(comp_job)
 
     # need to localise the VCF + index
     run_vcf = os.path.join(results_folder, 'hail_categorised.vcf.bgz')
