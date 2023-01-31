@@ -41,12 +41,15 @@ from reanalysis.utils import read_json_from_path, canonical_contigs_from_vcf
 
 SAMPLE_NUM_RE = re.compile(r'sample_[0-9]+')
 SAMPLE_ALT_TEMPLATE = 'num_alt_alleles_{}'
-VALID_VALUES = [
-    'AIP training: Expected',
-    'AIP training: Possible',
-    'AIP training: Unlikely',
-]
+# VALID_VALUES = [
+#     'AIP training: Expected',
+#     'AIP training: Possible',
+#     'AIP training: Unlikely',
+# ]
 
+VALID_VALUES = [
+    'Known gene for phenotype'
+]
 
 class Confidence(Enum):
     """
@@ -57,7 +60,8 @@ class Confidence(Enum):
             AIP should be capturing this result'
     """
 
-    EXPECTED = 'AIP training: Expected'
+    EXPECTED = 'Known gene for phenotype'
+    #EXPECTED = 'AIP training: Expected'
     POSSIBLE = 'AIP training: Possible'
     UNLIKELY = 'AIP training: Unlikely'
 
