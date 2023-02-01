@@ -48,7 +48,17 @@ SAMPLE_ALT_TEMPLATE = 'num_alt_alleles_{}'
 # ]
 
 VALID_VALUES = [
-    'Known gene for phenotype'
+    'Known gene for phenotype',
+    'Tier 1 - Novel gene and phenotype',
+	'Tier 1 - Novel gene for known phenotype',
+	'Tier 1 - Phenotype expansion',
+	'Tier 1 - Novel mode of inheritance',
+	'Tier 1 - Known gene, new phenotype',
+	'Tier 2 - Novel gene and phenotype',
+	'Tier 2 - Novel gene for known phenotype',
+    'Tier 2 - Phenotype expansion',
+	'Tier 2 - Phenotype not delineated',
+	'Tier 2 - Known gene, new phenotype'
 ]
 
 class Confidence(Enum):
@@ -60,10 +70,21 @@ class Confidence(Enum):
             AIP should be capturing this result'
     """
 
-    EXPECTED = 'Known gene for phenotype'
-    #EXPECTED = 'AIP training: Expected'
-    POSSIBLE = 'AIP training: Possible'
-    UNLIKELY = 'AIP training: Unlikely'
+    KGFP = 'Known gene for phenotype'
+    EXPECTED = 'AIP training: Expected'
+    #POSSIBLE = 'AIP training: Possible'
+    #UNLIKELY = 'AIP training: Unlikely'
+    T1_NGAP = 'Tier 1 - Novel gene and phenotype'
+    T1_NGFKP = 'Tier 1 - Novel gene for known phenotype'
+    T1_PE = 'Tier 1 - Phenotype expansion'
+    T1_NMOI = 'Tier 1 - Novel mode of inheritance'
+    T1_KGNP = 'Tier 1 - Known gene, new phenotype'
+    T2_NGAP = 'Tier 2 - Novel gene and phenotype'
+    T2_NGFKP = 'Tier 2 - Novel gene for known phenotype'
+    T2_PE = 'Tier 2 - Phenotype expansion'
+    T2_PND = 'Tier 2 - Phenotype not delineated'
+    T2_KGNP = 'Tier 2 - Known gene, new phenotype'
+
 
     def __lt__(self, other):
         return self.value < other.value
@@ -261,7 +282,7 @@ def find_seqr_flags(
             'matched': {'details': [], 'count': 0},
             'unmatched': {'details': [], 'count': 0},
         }
-        for key in ['EXPECTED', 'UNLIKELY', 'POSSIBLE']
+        for key in ['KGFP', 'T1_NGAP', 'T1_NGFKP', 'T1_PE', 'T1_NMOI', 'T1_KGNP', 'T2_NGAP', 'T2_NGFKP', 'T2_PE', 'T2_PND', 'T2_KGNP']
     }
     total_seqr_variants = 0
 
@@ -787,12 +808,18 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
         )
     )
 
+    with AnyPath(f'{output}_aip_common.json').open('w') as handle:
+        json.dump(aip_results, handle, default=str, indent=4)
+
     # Search for all affected sample IDs in the Peddy Pedigree
     affected = find_affected_samples(Ped(pedigree))
 
     # parse the Seqr results table, specifically targeting variants in probands
     seqr_results = common_format_seqr(seqr=seqr, affected=affected)
 
+    with AnyPath(f'{output}_seqr_common.json').open('w') as handle:
+        json.dump(seqr_results, handle, default=str, indent=4)
+    
     # strict comparison
     flag_summary = find_seqr_flags(aip_results=aip_results, seqr_results=seqr_results)
     with AnyPath(f'{output}_match_summary.json').open('w') as handle:
@@ -804,9 +831,9 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
         logging.info('All variants resolved!')
         sys.exit(0)
 
-    # load and digest panel data
-    panel_dict = read_json_from_path(os.path.join(results_folder, 'panelapp_data.json'))['genes']
-    green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
+    # # load and digest panel data
+    # panel_dict = read_json_from_path(os.path.join(results_folder, 'panelapp_data.json'))['genes']
+    # green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
 
     # if we had discrepancies, bin into classified and misc.
     in_vcf, not_in_vcf = check_in_vcf(vcf_path=vcf, variants=discrepancies)
