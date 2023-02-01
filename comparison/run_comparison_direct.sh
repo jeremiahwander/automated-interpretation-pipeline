@@ -5,8 +5,8 @@ set -ex
 # Make sure to export CPG_DEPLOY_CONFIG first?
 
 # set the date, or provide a default
-#DATE=${1:-$(date +%F)}
-DATE="2023-01-26"
+DATE=${1:-$(date +%F)}
+#DATE="2023-01-26"
 # make a randomized config name
 CONFIG_PATH=hail-az://raregen001sa/test/config-$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8).toml
 
@@ -22,7 +22,7 @@ python3 reanalysis/generate_workflow_config.py \
   
 export CPG_CONFIG_PATH=${CONFIG_PATH}
 python3 comparison/comparison_wrapper.py \
-  --results hail-az://raregen001sa/test-analysis/reanalysis_train/2023-01-26/ \
-  --seqr hail-az://raregen001sa/test/inputs/rgp/saved_known_gene_for_phenotype_variants_rare_genomes_project_genomes_hmb.tsv \
+  --results hail-az://raregen001sa/test-analysis/reanalysis_train/2023-01-31/ \
+  --seqr hail-az://raregen001sa/test/inputs/rgp/saved_all_variants_rare_genomes_project_genomes_hmb.tsv \
   --mt hail-az://raregen001sa/test/reanalysis_train/2023-01-26/annotated_variants.mt \
-  --fam_name pedigree_2023-01-26_21:56.fam
+  --fam_name pedigree_2023-01-31_22:13.fam
