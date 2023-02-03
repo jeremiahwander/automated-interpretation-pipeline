@@ -34,11 +34,11 @@ from cpg_utils.config import get_config
 # this will import the module, thus it follows a different pattern from reanalysis/interpretation_runner.py.
 import comparison
 
-def main(results_folder: str, seqr: str, mt: str, fam_name: str):
+def main(results_folder: str, truth: str, mt: str, fam_name: str):
     """
     main method, which runs the AIP comparison
     :param results_folder:
-    :param seqr:
+    :param truth:
     :param mt:
     :return:
     """
@@ -74,7 +74,7 @@ def main(results_folder: str, seqr: str, mt: str, fam_name: str):
         f'python3 {script_path} '
         f'--results_folder {results_folder} '
         f'--pedigree {ped_in_batch} '
-        f'--seqr {seqr} '
+        f'--truth "{truth}" '
         f'--vcf {vcf_in_batch["vcf.bgz"]} '
         f'--mt {mt} '
         f'--output {output_path("comparison_result")} '
@@ -94,8 +94,8 @@ if __name__ == '__main__':
     )
     parser = ArgumentParser()
     parser.add_argument('--results', help='results folder', required=True)
-    parser.add_argument('--seqr', help='Flagged Seqr variants', required=True)
+    parser.add_argument('--truth', help='Flagged Truth variants (seqr export or xlsx)', required=True)
     parser.add_argument('--mt', help='Hail MT of annotated variants', required=True)
     parser.add_argument('--fam_name', help='pedigree filename within results folder (defaults to "latest_pedigree.fam")', default="latest_pedigree.fam")
     args = parser.parse_args()
-    main(results_folder=args.results, seqr=args.seqr, mt=args.mt, fam_name=args.fam_name)
+    main(results_folder=args.results, truth=args.truth, mt=args.mt, fam_name=args.fam_name)

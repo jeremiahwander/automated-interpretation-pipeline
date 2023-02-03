@@ -23,6 +23,6 @@ python3 reanalysis/generate_workflow_config.py \
 export CPG_CONFIG_PATH=${CONFIG_PATH}
 python3 comparison/comparison_wrapper.py \
   --results hail-az://raregen001sa/test-analysis/reanalysis_train/2023-01-31/ \
-  --seqr hail-az://raregen001sa/test/inputs/rgp/saved_all_variants_rare_genomes_project_genomes_hmb.tsv \
+  --truth "hail-az://raregen001sa/test/inputs/rgp/CAGI6_RGP Training Set Key.xlsx" \
   --mt hail-az://raregen001sa/test/reanalysis_train/2023-01-26/annotated_variants.mt \
   --fam_name pedigree_2023-01-31_22:13.fam

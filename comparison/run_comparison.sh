@@ -15,6 +15,6 @@ analysis-runner \
   --access-level test \
   comparison/comparison_wrapper.py \
     --results hail-az://raregen001sa/test-analysis/reanalysis_train/2023-01-31/ \
-    --seqr hail-az://raregen001sa/test/inputs/rgp/saved_known_gene_for_phenotype_variants_rare_genomes_project_genomes_hmb.tsv \
+    --truth "hail-az://raregen001sa/test/inputs/rgp/CAGI6_RGP Training Set Key.xlsx" \
     --mt hail-az://raregen001sa/test/reanalysis_train/2023-01-26/annotated_variants.mt \
     --fam_name pedigree_2023-01-31_22:13.fam

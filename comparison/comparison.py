@@ -7,37 +7,32 @@ This is designed to recognise flags in the format 'AIP training: Confidence'
 See relevant documentation for a description of the algorithm used
 """
 import json
+import logging
 import os
+import re
+import sys
+from argparse import ArgumentParser
 from collections import defaultdict
 from csv import DictReader
 from enum import Enum
-import logging
-import re
-import sys
 from typing import Any
 
-from argparse import ArgumentParser
-from cloudpathlib import AnyPath
-from cyvcf2 import VCFReader
 import hail as hl
-from peddy import Ped
-
+import pandas as pd
+from cloudpathlib import AnyPath
 from cpg_utils.config import get_config
 from cpg_utils.hail_batch import init_batch
+from cyvcf2 import VCFReader
+from peddy import Ped
 
-from reanalysis.hail_filter_and_label import (
-    extract_annotations,
-    filter_matrix_by_ac,
-    filter_on_quality_flags,
-    filter_to_population_rare,
-    filter_to_well_normalised,
-    green_and_new_from_panelapp,
-    CONFLICTING,
-    LOFTEE_HC,
-    PATHOGENIC,
-)
-
-from reanalysis.utils import read_json_from_path, canonical_contigs_from_vcf
+from reanalysis.hail_filter_and_label import (CONFLICTING, LOFTEE_HC,
+                                              PATHOGENIC, extract_annotations,
+                                              filter_matrix_by_ac,
+                                              filter_on_quality_flags,
+                                              filter_to_population_rare,
+                                              filter_to_well_normalised,
+                                              green_and_new_from_panelapp)
+from reanalysis.utils import canonical_contigs_from_vcf, read_json_from_path
 
 SAMPLE_NUM_RE = re.compile(r'sample_[0-9]+')
 SAMPLE_ALT_TEMPLATE = 'num_alt_alleles_{}'
@@ -96,7 +91,7 @@ class CommonFormatResult:
     """
 
     def __init__(
-        self, chrom: str, pos: int, ref: str, alt: str, confidence: list[Confidence]
+        self, chrom: str, pos: int, ref: str, alt: str, confidence: list[Confidence], support: "CommonFormatResult" = None
     ):
         """
         always normalise contig - upper case, with no CHR prefix
@@ -105,12 +100,15 @@ class CommonFormatResult:
         :param ref:
         :param alt:
         :param confidence:
+        :param support:
         """
         self.chr: str = self.normalise_chrom(chrom)
         self.pos: int = pos
         self.ref: str = ref
         self.alt: str = alt
         self.confidence: list[Confidence] = confidence
+        self.support = support
+
 
     @staticmethod
     def normalise_chrom(chrom: str) -> str:
@@ -155,17 +153,26 @@ class CommonFormatResult:
         ]
 
     def __repr__(self):
-        return (
-            f'{self.chr}:{self.pos}_{self.ref}>{self.alt} '
-            f'- {", ".join(map(str, sorted(self.confidence)))}'
-        )
+        if sup := self.support:
+            return (
+                f'{self.chr}:{self.pos}_{self.ref}>{self.alt} ({sup.chr}:{sup.pos}_{sup.ref}>{sup.alt}) '
+                f'- {", ".join(map(str, sorted(self.confidence)))}'
+            )
+        else:
+            return (
+                f'{self.chr}:{self.pos}_{self.ref}>{self.alt} '
+                f'- {", ".join(map(str, sorted(self.confidence)))}'
+            )
 
     def __eq__(self, other):
+        if not isinstance(other, CommonFormatResult):
+            return False
         return (
             self.chr == other.chr
             and self.pos == other.pos
             and self.ref == other.ref
             and self.alt == other.alt
+            and self.support == other.support
         )
 
     def __hash__(self):
@@ -178,6 +185,66 @@ class CommonFormatResult:
 
 CommonDict = dict[str, list[CommonFormatResult]]
 ReasonDict = dict[str, list[tuple[CommonFormatResult, list[str]]]]
+
+def common_format_dataframe(results_df: pd.DataFrame, affected: list[str]) -> CommonDict:
+    """Given an input dataframe with the required columns listed below, produce a collection of CommonFormatResults. 
+    
+    Required colummns:
+    - sample_id - str
+    - is_proband - bool
+    - Gene-<N> - str/float
+    - Chrom-<N> - str
+    - Pos-<N> - int
+    - Ref-<N> - str
+    - Alt-<N> - str
+
+    N is either 1 (primary variant) or 2 (support variant in a compound het). If Gene-1 or Gene-2 is 
+    not a string, no primary variant or support variant will be interpreted, respectively. 
+    """
+
+    sample_dict = defaultdict(list)
+
+    for _, row in results_df.iterrows():
+        # There's probably a slicker way to do this, but this is easy to reason about and debug.
+
+        # Check whether this row is an affected proband.
+        # (Note, there's at least one individual in the train pedigree who's listed as affected, but isn't the proband. This 
+        # causes problems because the "answer key" doesn't include that individual), thus here we skip both non-probands, and 
+        # non-affecteds. Though there should be exactly zero non-affected probands.
+        if (not row['sample_id'] in affected) or (not row['is_proband']):
+            continue
+
+        # Check for a compound het (a second variant), save if found.
+        if isinstance(row['Gene-2'], str):
+            support_result = CommonFormatResult(row['Chrom-2'], int(row['Pos-2']), row['Ref-2'], row['Alt-2'], confidence=[Confidence.EXPECTED])
+        else:
+            support_result = None
+
+        sample_dict[row['sample_id']].append(
+            CommonFormatResult(row['Chrom-1'], int(row['Pos-1']), row['Ref-1'], row['Alt-1'], confidence=[Confidence.EXPECTED], support=support_result)
+        )
+
+    return sample_dict
+
+def parse_aip_support(support_vars: list[str], confidence_list: list[Confidence]) -> CommonFormatResult:
+    if not support_vars:
+        return None
+
+    # Haven't yet seen examples with more than one supporting variant, presumably it's possible biologically,
+    # but aip builds compound hets with pairwise comparison IIRC.
+    assert len(support_vars) == 1
+
+    # Of the format '18-23536811-G-A'
+    parts = support_vars[0].split('-')
+    assert len(parts) == 4
+
+    return CommonFormatResult(
+        parts[0],
+        int(parts[1]),
+        parts[2],
+        parts[3],
+        confidence_list
+    )    
 
 
 def common_format_aip(results_dict: dict[str, Any]) -> CommonDict:
@@ -201,6 +268,7 @@ def common_format_aip(results_dict: dict[str, Any]) -> CommonDict:
                     coords['ref'],
                     coords['alt'],
                     [Confidence.EXPECTED],
+                    support=parse_aip_support(var['support_vars'], [Confidence.EXPECTED])
                 )
             )
 
@@ -282,7 +350,7 @@ def find_seqr_flags(
             'matched': {'details': [], 'count': 0},
             'unmatched': {'details': [], 'count': 0},
         }
-        for key in ['KGFP', 'T1_NGAP', 'T1_NGFKP', 'T1_PE', 'T1_NMOI', 'T1_KGNP', 'T2_NGAP', 'T2_NGFKP', 'T2_PE', 'T2_PND', 'T2_KGNP']
+        for key in ['EXPECTED', 'KGFP', 'T1_NGAP', 'T1_NGFKP', 'T1_PE', 'T1_NMOI', 'T1_KGNP', 'T2_NGAP', 'T2_NGFKP', 'T2_PE', 'T2_PND', 'T2_KGNP']
     }
     total_seqr_variants = 0
 
@@ -786,15 +854,29 @@ def check_mt(
 
     return not_in_mt, untiered
 
+def prep_rgp_dataframe(truth: str):
+    # Totally ugly that this is in here, but it's as good a place as any for now.
+    # An alternative -- that's probably better -- would be to have a separate script to
+    # preprocess the rgp answer key and leave that intermediate output in storage to be accessed
+    # by this script.
 
-def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, output: str):
+    with open(AnyPath(truth), 'rb') as handle:
+        raw_df = pd.read_excel(handle, dtype=str)
+
+    raw_df = raw_df.rename(columns={'subject_id (to delete before sharing)': 'sample_id'})
+    raw_df['family_id'] = raw_df.apply(lambda x: '_'.join(x['sample_id'].split('_')[:2]), axis=1)
+    raw_df['is_proband'] = raw_df['CAGI-RGP ID'].str.endswith('PROBAND')
+    return raw_df
+
+
+def main(results_folder: str, pedigree: str, truth: str, vcf: str, mt: str, output: str):
     """
     runs a full match-seeking analysis of this AIP run against the
     expected variants (based on seqr training flags)
 
     :param results_folder:
     :param pedigree:
-    :param seqr:
+    :param truth:
     :param vcf:
     :param mt:
     :param output:
@@ -814,19 +896,29 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
     # Search for all affected sample IDs in the Peddy Pedigree
     affected = find_affected_samples(Ped(pedigree))
 
-    # parse the Seqr results table, specifically targeting variants in probands
-    seqr_results = common_format_seqr(seqr=seqr, affected=affected)
+    # `truth` can either be a seqr output ('tsv'), or an excel spreadsheet ('xlsx')
+    suffix = AnyPath(truth).suffix
 
-    with AnyPath(f'{output}_seqr_common.json').open('w') as handle:
-        json.dump(seqr_results, handle, default=str, indent=4)
+    if suffix == '.tsv':
+        # parse the Seqr results table, specifically targeting variants in probands
+        truth_results = common_format_seqr(seqr=truth, affected=affected)
+    elif suffix == '.xlsx':
+        truth_results = common_format_dataframe(
+            results_df=prep_rgp_dataframe(truth), affected=affected
+        )
+    else:
+        raise ValueError(f'Unknown suffix for truth_path: {suffix}')
+
+    with AnyPath(f'{output}_truth_common.json').open('w') as handle:
+        json.dump(truth_results, handle, default=str, indent=4)
     
     # strict comparison
-    flag_summary = find_seqr_flags(aip_results=aip_results, seqr_results=seqr_results)
+    flag_summary = find_seqr_flags(aip_results=aip_results, seqr_results=truth_results)
     with AnyPath(f'{output}_match_summary.json').open('w') as handle:
         json.dump(flag_summary, handle, default=str, indent=4)
 
     # compare the results of the two datasets
-    discrepancies = find_missing(seqr_results=seqr_results, aip_results=aip_results)
+    discrepancies = find_missing(seqr_results=truth_results, aip_results=aip_results)
     if not discrepancies:
         logging.info('All variants resolved!')
         sys.exit(0)
@@ -885,7 +977,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--results_folder')
     parser.add_argument('--pedigree')
-    parser.add_argument('--seqr')
+    parser.add_argument('--truth')
     parser.add_argument('--vcf')
     parser.add_argument('--mt')
     parser.add_argument('--output')
@@ -893,7 +985,7 @@ if __name__ == '__main__':
     main(
         results_folder=args.results_folder,
         pedigree=args.pedigree,
-        seqr=args.seqr,
+        truth=args.truth,
         vcf=args.vcf,
         mt=args.mt,
         output=args.output,

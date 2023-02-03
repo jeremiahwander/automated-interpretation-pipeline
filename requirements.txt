@@ -14,3 +14,4 @@ sample-metadata-ms>=0.7.1
 seqr-loader>=1.2.5
 analysis-runner-ms>=0.9.8
 tabulate>=0.8.9
+openpyxl>=3.1.0
