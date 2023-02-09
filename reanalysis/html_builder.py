@@ -58,12 +58,13 @@ class HTMLBuilder:
     Takes the input, makes the output
     """
 
-    def __init__(self, results: str, panelapp: str, pedigree: Ped):
+    def __init__(self, results: str, panelapp: str, pedigree: Ped, labels: str):
         """
         Args:
             results ():
             panelapp ():
             pedigree ():
+            labels ():
         """
         self.panelapp = read_json_from_path(panelapp)
         self.pedigree = Ped(pedigree)
@@ -88,6 +89,22 @@ class HTMLBuilder:
                     seqr_key
                 ), f'Seqr-related key required but not present: {seqr_key}'
 
+        # Optionally read in the labels file
+        ext_labels = {}
+
+        if labels and to_path(labels).exists():
+            ext_labels = read_json_from_path(labels)
+
+            # Labels file should be a nested dictionary of sample IDs and variant identifiers
+            # with a list of corresponding label values, e.g.:
+            # {
+            #     "sample1": {
+            #         "1-123456-A-T": ["label1", "label2"],
+            #         "1-123457-A-T": ["label1"]
+            #     },
+            # }
+
+
         # Read results file
         results_dict = read_json_from_path(results)
         self.metadata = results_dict['metadata']
@@ -101,6 +118,7 @@ class HTMLBuilder:
                     name=sample,
                     metadata=content['metadata'],
                     variants=content['variants'],
+                    ext_labels=ext_labels.get(sample, {}),
                     html_builder=self,
                 )
             )
@@ -251,6 +269,7 @@ class Sample:
         name: str,
         metadata: dict,
         variants: list[dict[str, Any]],
+        ext_labels: dict,
         html_builder: HTMLBuilder,
     ):
         self.name = name
@@ -261,14 +280,23 @@ class Sample:
         self.panel_ids = metadata['panel_ids']
         self.panel_names = metadata['panel_names']
         self.seqr_id = html_builder.seqr.get(name, name)
+        self.ext_labels = ext_labels
         self.html_builder = html_builder
 
         # Ingest variants excluding any on the forbidden gene list
         self.variants = [
-            Variant(variant_dict, self, html_builder.panelapp['genes'])
+            Variant(variant_dict, self, self._ext_var_labels_from_variant_dict(variant_dict, ext_labels), html_builder.panelapp['genes'])
             for variant_dict in variants
             if not variant_in_forbidden_gene(variant_dict, html_builder.forbidden_genes)
         ]
+
+    def _ext_var_labels_from_variant_dict(self, variant_dict: dict, ext_labels: dict) -> list:
+        """
+        Returns a list of external labels specific to the variant (for this sample)
+        """
+
+        var_string = f"{variant_dict['var_data']['coords']['chrom']}-{variant_dict['var_data']['coords']['pos']}-{variant_dict['var_data']['coords']['ref']}-{variant_dict['var_data']['coords']['alt']}"
+        return ext_labels.get(var_string, [])
 
     def __str__(self):
         return self.name
@@ -286,6 +314,7 @@ class Variant:
         self,
         variant_dict: dict,
         sample: Sample,
+        ext_labels: list,
         gene_map: dict[str, Any],
     ):
         self.chrom = variant_dict['var_data']['coords']['chrom']
@@ -300,6 +329,7 @@ class Variant:
         self.reasons = variant_dict['reasons']
         self.genotypes = variant_dict['genotypes']
         self.sample = sample
+        self.ext_labels = ext_labels
 
         # List of (gene_id, symbol)
         self.genes: list[tuple[str, str]] = []
@@ -370,6 +400,7 @@ if __name__ == '__main__':
     parser.add_argument('--results', help='Path to analysis results', required=True)
     parser.add_argument('--pedigree', help='PED file', required=True)
     parser.add_argument('--panelapp', help='PanelApp data', required=True)
+    parser.add_argument('--external_labels', help='Path to external labels (optional)', required=False)
     parser.add_argument('--out_path', help='results path', required=True)
     args = parser.parse_args()
 
