@@ -29,4 +29,5 @@ export CPG_CONFIG_PATH=${CONFIG_PATH}
 python3 reanalysis/interpretation_runner.py \
   -i hail-az://raregen001sa/test/reanalysis_train/2023-02-08/annotated_variants.mt \
   --pedigree hail-az://raregen001sa/test/inputs/rgp/rgp_train.fam \
-  --participant_panels hail-az://raregen001sa/test/inputs/rgp/rgp_hpo_based_panels.json
+  --participant_panels hail-az://raregen001sa/test/inputs/rgp/rgp_hpo_based_panels.json \
+  --skip_annotation
