@@ -58,13 +58,12 @@ class HTMLBuilder:
     Takes the input, makes the output
     """
 
-    def __init__(self, results: str, panelapp: str, pedigree: Ped, labels: str):
+    def __init__(self, results: str, panelapp: str, pedigree: Ped):
         """
         Args:
             results ():
             panelapp ():
             pedigree ():
-            labels ():
         """
         self.panelapp = read_json_from_path(panelapp)
         self.pedigree = Ped(pedigree)
@@ -90,10 +89,11 @@ class HTMLBuilder:
                 ), f'Seqr-related key required but not present: {seqr_key}'
 
         # Optionally read in the labels file
-        ext_labels = {}
+        ext_labels_path = get_config()['dataset_specific'].get('external_labels')
+        self.ext_labels = {}
 
-        if labels and to_path(labels).exists():
-            ext_labels = read_json_from_path(labels)
+        if ext_labels_path and to_path(ext_labels_path).exists():
+            self.ext_labels = read_json_from_path(ext_labels_path)
 
             # Labels file should be a nested dictionary of sample IDs and variant identifiers
             # with a list of corresponding label values, e.g.:
@@ -118,7 +118,7 @@ class HTMLBuilder:
                     name=sample,
                     metadata=content['metadata'],
                     variants=content['variants'],
-                    ext_labels=ext_labels.get(sample, {}),
+                    ext_labels=self.ext_labels.get(sample, {}),
                     html_builder=self,
                 )
             )
@@ -126,7 +126,7 @@ class HTMLBuilder:
 
     def get_summary_stats(
         self,
-    ) -> tuple[pd.DataFrame, list[str]]:
+    ) -> tuple[pd.DataFrame, list[str], list[str]]:
         """
         Run the numbers across all variant categories
         :return:
@@ -136,6 +136,7 @@ class HTMLBuilder:
         unique_variants = {key: set() for key in CATEGORY_ORDERING}
 
         samples_with_no_variants = []
+        ext_label_map = self.ext_labels.copy() if self.ext_labels else {}
 
         for sample in self.samples:
 
@@ -156,11 +157,19 @@ class HTMLBuilder:
                     sample_variants[category_value].add(var_string)
                     unique_variants[category_value].add(var_string)
 
+                # remove any external labels associated with this sample/variant.
+                if sample.name in ext_label_map:
+                    ext_label_map[sample.name].pop(var_string, None)
+
+
             category_count['any'].append(len(sample_variants['any']))
 
             # update the global lists with per-sample counts
             for key, key_list in category_count.items():
                 key_list.append(len(sample_variants[key]))
+
+        # Extract the list of unused ext labels
+        unused_ext_labels = [f'{sample_id}: {var_id} - {labels}' for sample_id, var_dict in ext_label_map.items() for var_id, labels in var_dict.items()]
 
         summary_dicts = [
             {
@@ -183,7 +192,7 @@ class HTMLBuilder:
         df.Category = df.Category.cat.set_categories(CATEGORY_ORDERING)
         df = df.sort_values(by='Category')
 
-        return df, samples_with_no_variants
+        return df, samples_with_no_variants, unused_ext_labels
 
     def read_metadata(self) -> dict[str, pd.DataFrame]:
         """
@@ -212,7 +221,7 @@ class HTMLBuilder:
         Uses the results to create the HTML tables
         writes all content to the output path
         """
-        summary_table, zero_categorised_samples = self.get_summary_stats()
+        summary_table, zero_categorised_samples, unused_ext_labels = self.get_summary_stats()
 
         template_context = {
             'metadata': self.metadata,
@@ -221,7 +230,8 @@ class HTMLBuilder:
             'seqr_project': get_config()['dataset_specific'].get('seqr_project'),
             'meta_tables': {},
             'forbidden_genes': [],
-            'zero_categorised_samples': [],
+            'zero_categorised_samples': zero_categorised_samples,
+            'unused_ext_labels': unused_ext_labels,
             'summary_table': None,
         }
 
@@ -236,9 +246,6 @@ class HTMLBuilder:
 
         if self.forbidden_genes:
             template_context['forbidden_genes'] = sorted(self.forbidden_genes)
-
-        if len(zero_categorised_samples) > 0:
-            template_context['zero_categorised_samples'] = zero_categorised_samples
 
         template_context['summary_table'] = DataTable(
             id='summary-table',
@@ -357,6 +364,12 @@ class Variant:
     def __str__(self) -> str:
         return f'{self.chrom}-{self.pos}-{self.ref}-{self.alt}'
 
+    def same_locus(self, other: object) -> bool:
+        if not isinstance(other, Variant):
+            return False
+        else:
+            return self.chrom == other.chrom and self.pos == other.pos and self.ref == other.ref and self.alt == other.alt
+
     def parse_csq(self):
         """
         Parse CSQ variant string returning:
@@ -400,7 +413,6 @@ if __name__ == '__main__':
     parser.add_argument('--results', help='Path to analysis results', required=True)
     parser.add_argument('--pedigree', help='PED file', required=True)
     parser.add_argument('--panelapp', help='PanelApp data', required=True)
-    parser.add_argument('--external_labels', help='Path to external labels (optional)', required=False)
     parser.add_argument('--out_path', help='results path', required=True)
     args = parser.parse_args()
 
