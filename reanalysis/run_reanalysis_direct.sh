@@ -23,11 +23,9 @@ python3 reanalysis/generate_workflow_config.py \
   --extra_configs reanalysis/reanalysis_global.toml reanalysis/reanalysis_cohort.toml \
   -o ${CONFIG_PATH}
 
-#  -i hail-az://raregen001sa/test/inputs/rgp/rgp_train.vcf.bgz \
 
 export CPG_CONFIG_PATH=${CONFIG_PATH}
 python3 reanalysis/interpretation_runner.py \
-  -i hail-az://raregen001sa/test/reanalysis_train/2023-02-08/annotated_variants.mt \
-  --pedigree hail-az://raregen001sa/test/inputs/rgp/rgp_train.fam \
+  -i hail-az://raregen001sa/test/inputs/rgp/rgp_train_test.vcf.bgz \
+  --pedigree hail-az://raregen001sa/test/inputs/rgp/rgp_train_test.fam \
   --participant_panels hail-az://raregen001sa/test/inputs/rgp/rgp_hpo_based_panels.json \
-  --skip_annotation
