@@ -83,7 +83,11 @@
             {% if unused_ext_labels %}
               <ul>
                 {% for label in unused_ext_labels %}
-                  <li>{{ label }}</li>
+                  <li>
+                    <a href="{{seqr_url}}/variant_search/variant/{{label['variant']}}/family/{{label['sample']}}" target="_blank">
+                        {{ label['variant'] }} {{ label['labels'] }}
+                    </a>
+                  </li>
                 {% endfor %}
               </ul>
             {% else %}
