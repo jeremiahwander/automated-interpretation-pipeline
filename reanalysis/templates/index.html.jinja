@@ -84,8 +84,8 @@
               <ul>
                 {% for label in unused_ext_labels %}
                   <li>
-                    <a href="{{seqr_url}}/variant_search/variant/{{label['variant']}}/family/{{label['sample']}}" target="_blank">
-                        {{ label['variant'] }} {{ label['labels'] }}
+                    <a href="{{seqr_url}}/variant_search/variant/{{label['variant']}}/family/{{label['sample_ext']}}" target="_blank">
+                        {{ label ['sample'] }} ({{ label['sample_ext'] }}) -- {{ label['variant'] }} {{ label['labels'] }}
                     </a>
                   </li>
                 {% endfor %}

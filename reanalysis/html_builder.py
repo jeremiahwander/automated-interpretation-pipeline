@@ -170,7 +170,8 @@ class HTMLBuilder:
 
         # Extract the list of unused ext labels
         # TODO, this is potentially not treating external sample IDs and internal sample IDs correctly.
-        unused_ext_labels = [{"sample": self.seqr.get(sample_id, sample_id), "variant": var_id, "labels": labels} for sample_id, var_dict in ext_label_map.items() for var_id, labels in var_dict.items()]
+        unused_ext_labels = [
+            {"sample": sample_id, "sample_ext": self.seqr.get(sample_id, sample_id), "variant": var_id, "labels": labels} for sample_id, var_dict in ext_label_map.items() for var_id, labels in var_dict.items()]
 
         summary_dicts = [
             {
