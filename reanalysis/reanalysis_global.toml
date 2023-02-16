@@ -51,7 +51,8 @@ cadd = 28.1
 critical_csq = ['frameshift_variant', 'splice_acceptor_variant', 'splice_donor_variant', 'start_lost', 'stop_gained', 'stop_lost', 'transcript_ablation']
 gerp = 1.0
 eigen = 0.25
-lenient_de_novo = true
+lenient_de_novo = false
+minimum_depth = 10
 polyphen = 0.99
 revel = 0.77
 sift = 0.0
@@ -182,3 +183,7 @@ trtools = "azcpg001acr.azurecr.io/cpg-common/images/trtools:4.0.2"
 vep = "azcpg001acr.azurecr.io/cpg-common/images/vep:105.0"
 verifybamid = "azcpg001acr.azurecr.io/cpg-common/images/verifybamid:2.0.1"
 stripy = "azcpg001acr.azurecr.io/cpg-common/images/stripy:2.2"
+
+[dataset_specific]
+description = 'placeholder for per-cohort data'
+require_pheno_match = ['FLG']
