@@ -3,6 +3,6 @@ description = "variables affecting how the final HTML report appears"
 external_lookup = ""
 forbidden = ""
 
-seqr_instance = "http://seqr.broadinstitute.org/"
-seqr_project = "R0384_rare_genomes_project_gen"
+seqr_instance = ""
+seqr_project = ""
 seqr_lookup = ""
