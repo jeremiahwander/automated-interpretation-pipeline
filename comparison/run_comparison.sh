@@ -3,16 +3,18 @@
 set -ex
 
 # set the date, or provide a default
-PAP_DATE=${1:-$(date +%F)}
+DATE=${1:-$(date +%F)}
 
 # run
 analysis-runner \
-  --config global.toml \
-  --dataset acute-care \
+  --config reanalysis/reanalysis_global.toml \
+  --dataset rgp \
+  --image azcpg001acr.azurecr.io/cpg-common/images/cpg_aip \
   --description "Run Comparison" \
-  -o "reanalysis/comparison/${PAP_DATE}" \
+  -o "reanalysis/comparison/${DATE}" \
   --access-level test \
   comparison/comparison_wrapper.py \
-    --results_folder gs://cpg-acute-care-test/reanalysis/2022-08-19 \
-    --seqr gs://cpg-acute-care-test/reanalysis/comparison/seqr_acute_care_tags.tsv \
-    --mt gs://cpg-acute-care-main/mt/986d792a448c66a8a5cfba65434e7d1ce9b1ff_1051-acute-care.mt
+    --results hail-az://raregen001sa/test-analysis/reanalysis_train/2023-01-31/ \
+    --truth "hail-az://raregen001sa/test/inputs/rgp/CAGI6_RGP Training Set Key.xlsx" \
+    --mt hail-az://raregen001sa/test/reanalysis_train/2023-01-26/annotated_variants.mt \
+    --fam_name pedigree_2023-01-31_22:13.fam

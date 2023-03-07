@@ -8,6 +8,7 @@
     <th class="group-false sorter-shortDate" data-date-format="yyyymmdd">First Seen</th>
     <th class="group-false">MANE CSQ</th>
     <th class="group-false">Clinvar</th>
+    <th class="group-false">Ext. Label</th>
     <th class="group-false">Flags</th>
     <th class="group-false">Support</th>
     </tr>
@@ -84,6 +85,14 @@
                 <i class="bi-star"></i>
             {%- endfor %}
         {% endif %}
+    </td>
+    <td>
+        {# External Labels #}
+        {% for label in variant.ext_labels %}
+        <span class="badge text-bg-info">
+            {{ label }}
+        </span><br>
+        {% endfor %}
     </td>
     <td>
         {# Warning Flags #}

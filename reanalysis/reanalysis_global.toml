@@ -37,7 +37,7 @@ cadd = 28.1
 critical_csq = ['frameshift_variant', 'splice_acceptor_variant', 'splice_donor_variant', 'start_lost', 'stop_gained', 'stop_lost', 'transcript_ablation']
 gerp = 1.0
 eigen = 0.25
-lenient_de_novo = false
+lenient_de_novo = true
 minimum_depth = 10
 polyphen = 0.99
 revel = 0.77
@@ -62,6 +62,7 @@ seqr_clinvar = "hail-az://azcpg001sa/reference/seqr/v0-1/clinvar.GRCh38.ht"
 
 [images]
 cpg_workflows = "azcpg001acr.azurecr.io/cpg-common/images/cpg_workflows:latest"
+cpg_aip = "azcpg001acr.azurecr.io/cpg-common/images/cpg_aip:latest"
 bcftools = "azcpg001acr.azurecr.io/cpg-common/images/bcftools:1.16"
 gatk = "azcpg001acr.azurecr.io/cpg-common/images/gatk:4.2.6.1"
 picard = "azcpg001acr.azurecr.io/cpg-common/images/picard:2.27.4"
