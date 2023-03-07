@@ -88,6 +88,23 @@ class HTMLBuilder:
                     seqr_key
                 ), f'Seqr-related key required but not present: {seqr_key}'
 
+        # Optionally read in the labels file
+        ext_labels_path = get_config()['dataset_specific'].get('external_labels')
+        self.ext_labels = {}
+
+        if ext_labels_path and to_path(ext_labels_path).exists():
+            self.ext_labels = read_json_from_path(ext_labels_path)
+
+            # Labels file should be a nested dictionary of sample IDs and variant identifiers
+            # with a list of corresponding label values, e.g.:
+            # {
+            #     "sample1": {
+            #         "1-123456-A-T": ["label1", "label2"],
+            #         "1-123457-A-T": ["label1"]
+            #     },
+            # }
+
+
         # Read results file
         results_dict = read_json_from_path(results)
         self.metadata = results_dict['metadata']
@@ -101,6 +118,7 @@ class HTMLBuilder:
                     name=sample,
                     metadata=content['metadata'],
                     variants=content['variants'],
+                    ext_labels=self.ext_labels.get(sample, {}),
                     html_builder=self,
                 )
             )
@@ -108,7 +126,7 @@ class HTMLBuilder:
 
     def get_summary_stats(
         self,
-    ) -> tuple[pd.DataFrame, list[str]]:
+    ) -> tuple[pd.DataFrame, list[str], list[str]]:
         """
         Run the numbers across all variant categories
         :return:
@@ -118,6 +136,7 @@ class HTMLBuilder:
         unique_variants = {key: set() for key in CATEGORY_ORDERING}
 
         samples_with_no_variants = []
+        ext_label_map = self.ext_labels.copy() if self.ext_labels else {}
 
         for sample in self.samples:
 
@@ -138,11 +157,21 @@ class HTMLBuilder:
                     sample_variants[category_value].add(var_string)
                     unique_variants[category_value].add(var_string)
 
+                # remove any external labels associated with this sample/variant.
+                if sample.name in ext_label_map:
+                    ext_label_map[sample.name].pop(var_string, None)
+
+
             category_count['any'].append(len(sample_variants['any']))
 
             # update the global lists with per-sample counts
             for key, key_list in category_count.items():
                 key_list.append(len(sample_variants[key]))
+
+        # Extract the list of unused ext labels
+        # TODO, this is potentially not treating external sample IDs and internal sample IDs correctly.
+        unused_ext_labels = [
+            {"sample": sample_id, "sample_ext": self.seqr.get(sample_id, sample_id), "variant": var_id, "labels": labels} for sample_id, var_dict in ext_label_map.items() for var_id, labels in var_dict.items()]
 
         summary_dicts = [
             {
@@ -165,7 +194,7 @@ class HTMLBuilder:
         df.Category = df.Category.cat.set_categories(CATEGORY_ORDERING)
         df = df.sort_values(by='Category')
 
-        return df, samples_with_no_variants
+        return df, samples_with_no_variants, unused_ext_labels
 
     def read_metadata(self) -> dict[str, pd.DataFrame]:
         """
@@ -194,7 +223,7 @@ class HTMLBuilder:
         Uses the results to create the HTML tables
         writes all content to the output path
         """
-        summary_table, zero_categorised_samples = self.get_summary_stats()
+        summary_table, zero_categorised_samples, unused_ext_labels = self.get_summary_stats()
 
         template_context = {
             'metadata': self.metadata,
@@ -203,7 +232,8 @@ class HTMLBuilder:
             'seqr_project': get_config()['dataset_specific'].get('seqr_project'),
             'meta_tables': {},
             'forbidden_genes': [],
-            'zero_categorised_samples': [],
+            'zero_categorised_samples': zero_categorised_samples,
+            'unused_ext_labels': unused_ext_labels,
             'summary_table': None,
         }
 
@@ -218,9 +248,6 @@ class HTMLBuilder:
 
         if self.forbidden_genes:
             template_context['forbidden_genes'] = sorted(self.forbidden_genes)
-
-        if len(zero_categorised_samples) > 0:
-            template_context['zero_categorised_samples'] = zero_categorised_samples
 
         template_context['summary_table'] = DataTable(
             id='summary-table',
@@ -251,6 +278,7 @@ class Sample:
         name: str,
         metadata: dict,
         variants: list[dict[str, Any]],
+        ext_labels: dict,
         html_builder: HTMLBuilder,
     ):
         self.name = name
@@ -261,14 +289,23 @@ class Sample:
         self.panel_ids = metadata['panel_ids']
         self.panel_names = metadata['panel_names']
         self.seqr_id = html_builder.seqr.get(name, name)
+        self.ext_labels = ext_labels
         self.html_builder = html_builder
 
         # Ingest variants excluding any on the forbidden gene list
         self.variants = [
-            Variant(variant_dict, self, html_builder.panelapp['genes'])
+            Variant(variant_dict, self, self._ext_var_labels_from_variant_dict(variant_dict, ext_labels), html_builder.panelapp['genes'])
             for variant_dict in variants
             if not variant_in_forbidden_gene(variant_dict, html_builder.forbidden_genes)
         ]
+
+    def _ext_var_labels_from_variant_dict(self, variant_dict: dict, ext_labels: dict) -> list:
+        """
+        Returns a list of external labels specific to the variant (for this sample)
+        """
+
+        var_string = f"{variant_dict['var_data']['coords']['chrom']}-{variant_dict['var_data']['coords']['pos']}-{variant_dict['var_data']['coords']['ref']}-{variant_dict['var_data']['coords']['alt']}"
+        return ext_labels.get(var_string, [])
 
     def __str__(self):
         return self.name
@@ -286,6 +323,7 @@ class Variant:
         self,
         variant_dict: dict,
         sample: Sample,
+        ext_labels: list,
         gene_map: dict[str, Any],
     ):
         self.chrom = variant_dict['var_data']['coords']['chrom']
@@ -300,6 +338,7 @@ class Variant:
         self.reasons = variant_dict['reasons']
         self.genotypes = variant_dict['genotypes']
         self.sample = sample
+        self.ext_labels = ext_labels
 
         # List of (gene_id, symbol)
         self.genes: list[tuple[str, str]] = []
@@ -326,6 +365,12 @@ class Variant:
 
     def __str__(self) -> str:
         return f'{self.chrom}-{self.pos}-{self.ref}-{self.alt}'
+
+    def same_locus(self, other: object) -> bool:
+        if not isinstance(other, Variant):
+            return False
+        else:
+            return self.chrom == other.chrom and self.pos == other.pos and self.ref == other.ref and self.alt == other.alt
 
     def parse_csq(self):
         """
