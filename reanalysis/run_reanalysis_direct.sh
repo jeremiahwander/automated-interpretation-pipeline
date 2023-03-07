@@ -29,5 +29,5 @@ python3 reanalysis/generate_workflow_config.py \
 
 export CPG_CONFIG_PATH=${CONFIG_PATH}
 python3 reanalysis/interpretation_runner.py \
-  -i hail-az://raregen001sa/test/inputs/rgp/rgp_train.vcf.bgz \
-  --pedigree hail-az://raregen001sa/test/inputs/rgp/rgp_train.fam
+  -i hail-az://kaileighdemo1sa/test/inputs/prior_to_annotation.vcf.bgz \
+  --pedigree hail-az://kaileighdemo1sa/test/inputs/pedigree.fam
