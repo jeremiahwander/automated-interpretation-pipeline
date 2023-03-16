@@ -6,36 +6,95 @@ master script for preparing a run
 - optionally takes a seqr metadata file
 - copies relevant files to GCP
 - generates the cohort-specific TOML file
+- tweaks for making singleton versions of the given cohort
 """
 
 
 from argparse import ArgumentParser
-from collections import defaultdict
 from itertools import product
 import hashlib
 import json
 import logging
 import os
-
+import re
 import toml
 
 from cpg_utils import to_path, Path
-from sample_metadata.apis import FamilyApi, ParticipantApi
+from cpg_utils.config import get_config
+from sample_metadata.apis import FamilyApi
 
 from reanalysis.utils import read_json_from_path
+from helpers.hpo_panel_matching import (
+    get_panels,
+    get_unique_hpo_terms,
+    match_hpos_to_panels,
+    query_and_parse_metadata,
+)
+from helpers.utils import ext_to_int_sample_map
 
 
-BUCKET_TEMPLATE = 'gs://cpg-{dataset}-test/reanalysis'
+BUCKET_TEMPLATE = 'gs://cpg-{dataset}-test-analysis/reanalysis'
 LOCAL_TEMPLATE = 'inputs/{dataset}'
+OBO_DEFAULT = os.path.join(os.path.dirname(__file__), 'hpo_terms.obo')
+
+MAX_DEPTH: int = 3
+
+HPO_RE = re.compile(r'HP:[0-9]+')
+PANELS_ENDPOINT = 'https://panelapp.agha.umccr.org/api/v1/panels/'
+PRE_PANEL_PATH = to_path(__file__).parent.parent / 'reanalysis' / 'pre_panelapp.json'
 
 
-def get_seqr_details(seqr_meta: str, local_root, remote_root) -> tuple[str, str]:
+def match_participants_to_panels(
+    participant_hpos: dict, hpo_panels: dict, participant_map: dict
+) -> dict:
+    """
+    take the two maps of Participants: HPOs, and HPO: Panels
+    blend the two to find panels per participant
+
+    For each participant, find any HPO terms which were matched to panels
+    for each matched term, add the panel(s) to the participant's private set
+
+    Args:
+        participant_hpos ():
+        hpo_panels ():
+        participant_map ():
+    """
+
+    final_dict = {}
+    for participant, party_data in participant_hpos.items():
+        for participant_key in participant_map.get(participant, [participant]):
+            final_dict[participant_key] = {
+                'panels': {137},  # always default to mendeliome
+                'external_id': participant,
+                **party_data,
+            }
+            for hpo_term in party_data['hpo_terms']:
+                if hpo_term in hpo_panels:
+                    final_dict[participant_key]['panels'].update(hpo_panels[hpo_term])
+
+    # now populate the missing samples?
+    for ext_id, int_ids in participant_map.items():
+        if ext_id not in participant_hpos:
+            for each_id in int_ids:
+                final_dict[each_id] = {
+                    'panels': {137},  # always default to mendeliome
+                    'external_id': ext_id,
+                    'hpo_terms': [],
+                }
+
+    return final_dict
+
+
+def get_seqr_details(
+    seqr_meta: str, local_root, remote_root, exome: bool = False
+) -> tuple[str, str]:
     """
     process the seqr data, write locally, copy remotely
     Args:
         seqr_meta ():
         local_root ():
         remote_root ():
+        exome ():
 
     Returns:
 
@@ -59,16 +118,14 @@ def get_seqr_details(seqr_meta: str, local_root, remote_root) -> tuple[str, str]
     project_id = project_id.pop()
 
     logging.info(f'{len(parsed)} families in seqr metadata')
-    filename = f'seqr_{"exome_" if "exome" in project_id else ""}processed.json'
+    filename = f'seqr_{"exome_" if exome else ""}processed.json'
 
-    local_path = local_root / filename
-    remote_path = remote_root / filename
-    with local_path.open('w') as handle:
+    with (local_root / filename).open('w') as handle:
         json.dump(parsed, handle, indent=4, sort_keys=True)
-    with remote_path.open('w') as handle:
+    with (remote_root / filename).open('w') as handle:
         json.dump(parsed, handle, indent=4, sort_keys=True)
 
-    return project_id, str(remote_path)
+    return project_id, str(remote_root / filename)
 
 
 # the keys provided by the SM API, in the order to write in output
@@ -83,24 +140,30 @@ PED_KEYS = [
 
 
 def get_ped_with_permutations(
-    pedigree_dicts: list[dict],
-    sample_to_cpg_dict: dict,
+    pedigree_dicts: list[dict], sample_to_cpg_dict: dict, make_singletons: bool = False
 ) -> list[dict]:
     """
     Take the pedigree entry representations from the pedigree endpoint
     translates sample IDs of all members to CPG values
     sample IDs are replaced with lists, containing all permutations
     where multiple samples exist
+    Optionally, overwrite all family structures and render as singletons
+    If we're running singletons, remove all unaffected
 
-    :param pedigree_dicts:
-    :param sample_to_cpg_dict:
-    :return:
+    Args:
+        pedigree_dicts ():
+        sample_to_cpg_dict ():
+        make_singletons ():
+
+    Returns:
+        list of dicts representing rows of the pedigree
     """
 
     new_entries = []
     failures: list[str] = []
 
-    for ped_entry in pedigree_dicts:
+    # enumerate to get ints - use these as family IDs if singletons
+    for counter, ped_entry in enumerate(pedigree_dicts, 1):
 
         if ped_entry['individual_id'] not in sample_to_cpg_dict:
             failures.append(ped_entry['individual_id'])
@@ -108,13 +171,21 @@ def get_ped_with_permutations(
         # update the sample IDs
         ped_entry['individual_id'] = sample_to_cpg_dict[ped_entry['individual_id']]
 
-        # remove parents and assign an individual sample ID
-        ped_entry['paternal_id'] = sample_to_cpg_dict.get(
-            ped_entry['paternal_id'], ['0']
-        )
-        ped_entry['maternal_id'] = sample_to_cpg_dict.get(
-            ped_entry['maternal_id'], ['0']
-        )
+        if make_singletons:
+            # skip unaffected singletons
+            if ped_entry['affected'] == 0:
+                continue
+            ped_entry['paternal_id'] = ['0']
+            ped_entry['maternal_id'] = ['0']
+            ped_entry['family_id'] = str(counter)
+        else:
+            # remove parents and assign an individual sample ID
+            ped_entry['paternal_id'] = sample_to_cpg_dict.get(
+                ped_entry['paternal_id'], ['0']
+            )
+            ped_entry['maternal_id'] = sample_to_cpg_dict.get(
+                ped_entry['maternal_id'], ['0']
+            )
 
         new_entries.append(ped_entry)
 
@@ -127,7 +198,10 @@ def get_ped_with_permutations(
 
 
 def process_pedigree(
-    ped_with_permutations: list[dict], local_dir: Path, remote_dir: Path
+    ped_with_permutations: list[dict],
+    local_dir: Path,
+    remote_dir: Path,
+    singletons: bool = False,
 ) -> str:
     """
     take the pedigree data, and write out as a correctly formatted PED file
@@ -137,6 +211,7 @@ def process_pedigree(
         ped_with_permutations (): the PED content with sample lists
         local_dir ():
         remote_dir ():
+        singletons (bool):
 
     Returns:
         The path we're writing the remote data to
@@ -164,11 +239,14 @@ def process_pedigree(
     # condense all lines into one
     single_line = ''.join(ped_lines)
 
+    # make the pedigree name
+    ped_name = f'{"singletons_" if singletons else ""}pedigree.ped'
+
     # write to a local file
-    (local_dir / 'pedigree.ped').write_text(single_line)
+    (local_dir / ped_name).write_text(single_line)
 
     # also write to the remote path
-    remote_path = remote_dir / 'pedigree.ped'
+    remote_path = remote_dir / ped_name
     remote_path.write_text(single_line)
     logging.info(f'Wrote pedigree with {len(ped_lines)} lines to {remote_path}')
 
@@ -180,39 +258,15 @@ def get_pedigree_for_project(project: str) -> list[dict[str, str]]:
     """
     fetches the project pedigree from sample-metadata
     list, one dict per participant
-    :param project:
-    :return: all content retrieved from API
+
+    Args:
+        project (str): project/dataset to use in query
+
+    Returns:
+        All API returned content
     """
 
     return FamilyApi().get_pedigree(project=project)
-
-
-def ext_to_int_sample_map(project: str) -> dict[str, list[str]]:
-    """
-    fetches the participant-sample mapping, so external IDs can be translated
-    to the corresponding CPG ID
-
-    This endpoint returns a list of tuples, each containing a participant ID
-    and corresponding sample ID
-
-    This originally had an expectation of a 1:1 participant:sample relationship
-    that will not hold in general, as numerous samples have multiple samples
-
-    for each participant, create a list of all possible samples
-
-    :param project:
-    :return: the mapping dictionary
-    """
-
-    sample_map = defaultdict(list)
-    for (
-        participant,
-        sample,
-    ) in ParticipantApi().get_external_participant_id_to_internal_sample_id(
-        project=project
-    ):
-        sample_map[participant].append(sample)
-    return sample_map
 
 
 def process_reverse_lookup(
@@ -234,8 +288,7 @@ def process_reverse_lookup(
         for participant, samples in mapping_digest.items()
         for sample in samples
     }
-    local_lookup = to_path(local_dir) / 'external_lookup.json'
-    with local_lookup.open('w') as handle:
+    with (to_path(local_dir) / 'external_lookup.json').open('w') as handle:
         json.dump(clean_dict, handle, indent=4)
 
     remote_lookup = to_path(remote_dir) / 'external_lookup.json'
@@ -251,10 +304,15 @@ def hash_reduce_dicts(pedigree_dicts: list[dict], hash_threshold: int) -> list[d
     Normalises the Hash value to the range 0 - 99
     if the normalised value exceeds the threshold, remove
 
-    :param pedigree_dicts:
-    :param hash_threshold: int
-    :return:
+    Args:
+        pedigree_dicts ():
+        hash_threshold ():
+
+    Returns:
+
     """
+
+    logging.info(f'Reducing families to {hash_threshold}%')
 
     reduced_pedigree = []
 
@@ -269,31 +327,38 @@ def hash_reduce_dicts(pedigree_dicts: list[dict], hash_threshold: int) -> list[d
     return reduced_pedigree
 
 
-def main(project: str, hash_threshold: int = 100, seqr_file: str | None = None):
+def main(
+    project: str,
+    obo: str,
+    seqr_file: str | None = None,
+    exome: bool = False,
+    singletons: bool = False,
+):
     """
     Who runs the world? main()
-    Returns:
 
+    Args:
+        project ():
+        obo ():
+        seqr_file ():
+        exome ():
+        singletons ():
     """
 
     local_root = to_path(LOCAL_TEMPLATE.format(dataset=project))
-    remote_root = to_path(BUCKET_TEMPLATE.format(dataset=project))
 
-    cohort_config = {'dataset_specific': {}}
-    if seqr_file:
-        project_id, seqr_file = get_seqr_details(seqr_file, local_root, remote_root)
-        cohort_config['dataset_specific'] = {
-            'seqr_instance': 'https://seqr.populationgenomics.org.au',
-            'seqr_project': project_id,
-            'seqr_lookup': seqr_file,
-        }
+    if not local_root.exists():
+        local_root.mkdir(parents=True, exist_ok=True)
+
+    remote_root = to_path(BUCKET_TEMPLATE.format(dataset=project))
 
     # get the list of all pedigree members as list of dictionaries
     logging.info('Pulling all pedigree members')
     pedigree_dicts = get_pedigree_for_project(project=project)
 
     # if a threshold is provided, reduce the families present
-    if isinstance(hash_threshold, int):
+    hash_threshold = get_config()['cohorts'][project].get('cohort_percentage', 100)
+    if hash_threshold != 100:
         pedigree_dicts = hash_reduce_dicts(pedigree_dicts, hash_threshold)
 
     # endpoint gives list of tuples e.g. [['A1234567_proband', 'CPG12341']]
@@ -305,24 +370,85 @@ def main(project: str, hash_threshold: int = 100, seqr_file: str | None = None):
     ped_with_permutations = get_ped_with_permutations(
         pedigree_dicts=pedigree_dicts,
         sample_to_cpg_dict=sample_to_cpg_dict,
+        make_singletons=singletons,
     )
 
     # store a way of reversing this lookup in future
     reverse_lookup = process_reverse_lookup(sample_to_cpg_dict, local_root, remote_root)
-    cohort_config['dataset_specific']['external_lookup'] = reverse_lookup
 
-    ped_file = process_pedigree(ped_with_permutations, local_root, remote_root)
+    # try a more universal way of preparing output paths
+    path_prefixes = []
+    if exome:
+        path_prefixes.append('exomes')
+    if singletons:
+        path_prefixes.append('singleton')
 
-    local_config = local_root / 'cohort_config.toml'
-    with local_config.open('w') as handle:
-        toml.dump(cohort_config, handle)
+    logging.info(f'Output Prefix:\n---\nreanalysis/{"/".join(path_prefixes)}\n---')
 
-    print(
-        f"""
-    --config {local_config}
-    --pedigree {ped_file}
-    """
+    cohort_config = {
+        'dataset_specific': {
+            'historic_results': str(
+                remote_root / '/'.join(path_prefixes + ['historic_results'])
+            ),
+            'external_lookup': reverse_lookup,
+        }
+    }
+    if seqr_file:
+        project_id, seqr_file = get_seqr_details(
+            seqr_file, local_root, remote_root, exome
+        )
+        cohort_config['dataset_specific'].update(
+            {
+                'seqr_instance': 'https://seqr.populationgenomics.org.au',
+                'seqr_project': project_id,
+                'seqr_lookup': seqr_file,
+            }
+        )
+
+    ped_file = process_pedigree(
+        ped_with_permutations, local_root, remote_root, singletons=singletons
     )
+
+    path_prefixes.append('cohort_config.toml')
+    cohort_path = local_root / '_'.join(path_prefixes)
+
+    with cohort_path.open('w') as handle:
+        toml.dump(cohort_config, handle)
+        logging.info(f'Wrote cohort config to {cohort_path}')
+
+    # pull metadata from metamist/api content
+    participants_hpo = query_and_parse_metadata(dataset_name=project)
+
+    # mix & match the HPOs, panels, and participants
+    # this will be a little complex to remove redundant searches
+    # e.g. multiple participants & panels may have the same HPO terms
+    # so only search once for each HPO term
+    hpo_to_panels = match_hpos_to_panels(
+        hpo_to_panel_map=get_panels(),
+        obo_file=obo,
+        all_hpos=get_unique_hpo_terms(participants_hpo),
+    )
+    participant_panels = match_participants_to_panels(
+        participants_hpo, hpo_to_panels, participant_map=sample_to_cpg_dict
+    )
+    panel_local = local_root / 'participant_panels.json'
+    with panel_local.open('w') as handle:
+        json.dump(participant_panels, handle, indent=4, default=list)
+        logging.info(f'Wrote panel file to {panel_local}')
+
+    panel_remote = remote_root / 'participant_panels.json'
+    with panel_remote.open('w') as handle:
+        json.dump(participant_panels, handle, indent=4, default=list)
+        logging.info(f'Wrote panel file to {panel_remote}')
+
+    # finally, copy the pre-panelapp content if it didn't already exist
+    pre_panelapp = read_json_from_path(PRE_PANEL_PATH)
+    remote_panelapp = remote_root / 'pre_panelapp_mendeliome.json'
+    with remote_panelapp.open('w') as handle:
+        json.dump(pre_panelapp, handle, indent=4)
+        logging.info(f'Wrote VCGS gene prior file to {remote_panelapp}')
+
+    logging.info(f'--pedigree {ped_file}')
 
 
 if __name__ == '__main__':
@@ -331,15 +457,19 @@ if __name__ == '__main__':
     parser.add_argument(
         '--project', help='Project name to use in API queries', required=True
     )
-    parser.add_argument(
-        '--hash_threshold',
-        help=(
-            'Integer 0-100 representing the percentage of families to '
-            'include, e.g. 15 will result in the retention of 15pc of families'
-        ),
-        type=int,
-        default=100,
-    )
     parser.add_argument('--seqr', help='optional, seqr JSON file', required=False)
+    parser.add_argument(
+        '--obo', default=OBO_DEFAULT, help='path to the HPO .obo tree file'
+    )
+    parser.add_argument('-e', help='cohort is exomes', action='store_true')
+    parser.add_argument(
+        '--singletons', help='cohort as singletons', action='store_true'
+    )
     args = parser.parse_args()
-    main(project=args.project, hash_threshold=args.hash_threshold, seqr_file=args.seqr)
+    main(
+        project=args.project,
+        obo=args.obo,
+        seqr_file=args.seqr,
+        exome=args.e,
+        singletons=args.singletons,
+    )

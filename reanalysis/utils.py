@@ -21,7 +21,7 @@ from cpg_utils import to_path
 from cpg_utils.config import get_config
 from cpg_utils.git import get_git_repo_root
 
-# pylint: disable=too-many-lines
+# pylint: disable=too-many-lines,too-many-instance-attributes,global-statement
 
 
 HOMREF: int = 0
@@ -36,7 +36,9 @@ NON_HOM_CHROM = ['X', 'Y', 'MT', 'M']
 CHROM_ORDER = list(map(str, range(1, 23))) + NON_HOM_CHROM
 X_CHROMOSOME = {'X'}
 TODAY = datetime.now().strftime('%Y-%m-%d_%H:%M')
-GRANULAR = datetime.now().strftime('%Y-%m-%d')
+
+_GRANULAR_DATE: str | None = None
+
 
 # most lenient to most conservative
 # usage = if we have two MOIs for the same gene, take the broadest
@@ -49,6 +51,20 @@ ORDERED_MOIS = [
 ]
 IRRELEVANT_MOI = {'unknown', 'other'}
 REMOVE_IN_SINGLETONS = {'categorysample4'}
+
+
+def get_granular_date():
+    """
+    cached getter/setter
+    """
+    global _GRANULAR_DATE
+    if _GRANULAR_DATE is None:
+        # allow an override here - synthetic historic runs
+        if fake_date := get_config()['workflow'].get('fake_date'):
+            _GRANULAR_DATE = fake_date
+        else:
+            _GRANULAR_DATE = datetime.now().strftime('%Y-%m-%d')
+    return _GRANULAR_DATE
 
 
 class FileTypes(Enum):
@@ -139,14 +155,13 @@ class Coordinates:
     alt: str
 
     @property
-    def string_format(self):
+    def string_format(self) -> str:
         """
-        forms a string representation
-        chr-pos-ref-alt
+        forms a string representation: chr-pos-ref-alt
         """
         return f'{self.chrom}-{self.pos}-{self.ref}-{self.alt}'
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         """
         enables positional sorting
         """
@@ -161,7 +176,7 @@ class Coordinates:
             return True
         return False
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """
         equivalence check
         Args:
@@ -186,7 +201,7 @@ def get_json_response(url: str) -> Any:
     List use-case (activities endpoint) no longer supported
 
     Args:
-        url ():
+        url (): str URL to retrieve JSON format data from
 
     Returns:
         the JSON response from the endpoint
@@ -195,6 +210,21 @@ def get_json_response(url: str) -> Any:
     response = requests.get(url, headers={'Accept': 'application/json'}, timeout=60)
     response.raise_for_status()
     return response.json()
+
+
+def get_cohort_config():
+    """
+    return the cohort-specific portion of the config file, or fail
+
+    Returns:
+        the dict of
+    """
+
+    dataset = get_config()['workflow']['dataset']
+    assert (
+        dataset in get_config()['cohorts']
+    ), f'Dataset {dataset} is not represented in config'
+    return get_config()['cohorts'][dataset]
 
 
 def get_new_gene_map(
@@ -207,11 +237,13 @@ def get_new_gene_map(
     classification.
 
     Generate a map of
-    { gene: [samples, where, this, is, 'new']}
+    {gene: [samples, where, this, is, 'new']}
     """
 
-    # pull out the core panel once
-    core_panel = get_config()['workflow']['default_panel']
+    # find the dataset-specific panel data, if present
+    # add the 'core' panel to it
+    config_cohort_panels: list[int] = get_cohort_config().get('cohort_panels', [])
+    cohort_panels = config_cohort_panels + [get_config()['panels']['default_panel']]
 
     # collect all genes new in at least one panel
     new_genes = {
@@ -236,7 +268,7 @@ def get_new_gene_map(
 
     # iterate over the new genes and find out who they are new for
     for gene, panels in new_genes.items():
-        if core_panel in panels:
+        if any(panel in cohort_panels for panel in panels):
             pheno_matched_new[gene] = 'all'
             continue
 
@@ -295,7 +327,7 @@ def get_phase_data(samples, var) -> dict[str, dict[int, str]]:
 
 
 @dataclass
-class AbstractVariant:  # pylint: disable=too-many-instance-attributes
+class AbstractVariant:
     """
     create class to contain all content from cyvcf2 object
     """
@@ -346,6 +378,9 @@ class AbstractVariant:  # pylint: disable=too-many-instance-attributes
             else:
                 _boolcat = self.info.pop('categoryboolean2')
 
+        # do something spicy with PM5
+        self.organise_pm5()
+
         # set the class attributes
         self.boolean_categories = [
             key for key in self.info.keys() if key.startswith('categoryboolean')
@@ -391,6 +426,55 @@ class AbstractVariant:  # pylint: disable=too-many-instance-attributes
         self.ab_ratios = dict(zip(samples, map(float, var.gt_alt_freqs)))
         self.depths = dict(zip(samples, map(float, var.gt_depths)))
         self.categories = []
+
+    def organise_pm5(self):
+        """
+        method dedicated to handling the new pm5 annotations
+
+        e.g. categorydetailsPM5=27037::Pathogenic::1+27048::Pathogenic::1;
+        1. break into component allele data
+
+        Returns:
+            None, updates self. attributes
+        """
+        try:
+            pm5_content = self.info.pop('categorydetailspm5')
+        except KeyError:
+            return
+
+        # nothing to do here
+        if pm5_content == 'missing':
+            self.info['categorybooleanpm5'] = 0
+            return
+
+        # current clinvar annotation, if any
+        current_clinvar = str(self.info.get('clinvar_allele', 'not_this'))
+
+        # instantiate a dict to store csq-matched results
+        pm5_data = {}
+
+        # break the strings into a set
+        pm5_strings = set(pm5_content.split('+'))
+        for clinvar_entry in pm5_strings:
+
+            # fragment each entry
+            allele_id, _rating, stars = clinvar_entry.split('::')
+
+            # never consider the exact match, pm5 is always separate
+            if allele_id == current_clinvar:
+                continue
+
+            # if non-self, add to the dict
+            pm5_data[allele_id] = stars
+
+        # case where no non-self alleles were found
+        # assigning False and not-assigning are equivalent, just return
+        if pm5_data:
+            # set boolean category and specific data
+            self.info['categorybooleanpm5'] = 1
+            self.info['pm5_data'] = pm5_data
+        else:
+            self.info['categorybooleanpm5'] = 0
 
     def __str__(self):
         return repr(self)
@@ -451,9 +535,20 @@ class AbstractVariant:  # pylint: disable=too-many-instance-attributes
         """
         return self.has_support and not self.category_non_support
 
+    def sample_support_only(self, sample_id: str) -> bool:
+        """
+        check that the variant is exclusively cat. support
+        check that this sample is missing from sample flags
+
+        Returns:
+            True if support only
+        """
+        return self.has_support and not self.sample_categorised_check(sample_id)
+
     def category_values(self, sample: str) -> list[str]:
         """
-        get all variant categories; sample-specific checks for de novo
+        get all variant categories
+        steps category flags down to booleans - true for this sample
 
         Args:
             sample (str): sample id
@@ -461,42 +556,30 @@ class AbstractVariant:  # pylint: disable=too-many-instance-attributes
         Returns:
             list of all categories applied to this variant
         """
+
+        # step down all category flags to boolean flags
+        for category in self.sample_categories:
+            sample_list = self.info.pop(category)
+            new_cat = category.replace('categorysample', 'categoryboolean')
+            self.info[new_cat] = bool(sample in sample_list)
+            self.boolean_categories.append(new_cat)
         categories = [
             bool_cat.replace('categoryboolean', '')
             for bool_cat in self.boolean_categories
             if self.info[bool_cat]
         ]
+
         if self.has_support:
             categories.append('support')
 
-        if self.sample_de_novo(sample_id=sample):
-            categories.append('de_novo')
-
-        # mutually exlusive with the boolean category2 value
-        if new := self.info.get('categorysample2'):
-            if any(x in new for x in ['all', sample]):
-                categories.append('2')
-
         return categories
-
-    def sample_de_novo(self, sample_id: str) -> bool:
-        """
-        check if variant is de novo for this sample
-
-        Args:
-            sample_id (str):
-
-        Returns:
-            bool: True if this sample forms de novo
-        """
-        return sample_id in self.info.get('categorysample4', [])
 
     def sample_categorised_check(self, sample_id: str) -> bool:
         """
         check if any *sample categories applied for this sample
 
         Args:
-            sample_id (str):
+            sample_id (str): the specific sample ID to check
 
         Returns:
             bool: True if this sample features in any
@@ -532,7 +615,22 @@ class AbstractVariant:  # pylint: disable=too-many-instance-attributes
         """
         gets all report flags for this sample - currently only one flag
         """
-        return self.check_ab_ratio(sample)
+        return self.check_ab_ratio(sample) + self.check_read_depth(sample)
+
+    def check_read_depth(self, sample: str) -> list[str]:
+        """
+        flag low read depth for this sample
+
+        Args:
+            sample ():
+
+        Returns:
+            return a flag if this sample has low read depth
+        """
+        threshold = get_config()['filter'].get('minimum_depth', 10)
+        if self.depths[sample] < threshold:
+            return ['Low Read Depth']
+        return []
 
     def check_ab_ratio(self, sample: str) -> list[str]:
         """
@@ -571,8 +669,6 @@ class ReportedVariant:
     allows for the presence of flags e.g. Borderline AB ratio
     """
 
-    # pylint: disable=too-many-instance-attributes
-
     sample: str
     family: str
     gene: str
@@ -582,8 +678,9 @@ class ReportedVariant:
     supported: bool = field(default=False)
     support_vars: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
+    panels: dict[str] = field(default_factory=dict)
     phenotypes: list[str] = field(default_factory=list)
-    first_seen: str = GRANULAR
+    first_seen: str = get_granular_date()
 
     def __eq__(self, other):
         """
@@ -604,11 +701,11 @@ class ReportedVariant:
 
 def canonical_contigs_from_vcf(reader) -> set[str]:
     """
-    reader is a cyvcf2.VCFReader
     read the header fields from the VCF handle
     return a set of all 'canonical' contigs
-    :param reader:
-    :return:
+
+    Args:
+        reader (): cyvcf2.VCFReader
     """
 
     # contig matching regex - remove all HLA/decoy/unknown
@@ -738,9 +835,6 @@ def get_simple_moi(input_moi: str | None, chrom: str) -> str | None:
     Args:
         input_moi ():
         chrom ():
-
-    Returns:
-
     """
 
     if input_moi in IRRELEVANT_MOI:
@@ -801,9 +895,10 @@ def get_non_ref_samples(variant, samples: list[str]) -> tuple[set[str], set[str]
 
 def extract_csq(csq_contents) -> list[dict]:
     """
-    handle extraction of the CSQ entries
-    :param csq_contents:
-    :return:
+    handle extraction of the CSQ entries based on string in config
+
+    Args:
+        csq_contents ():
     """
 
     # allow for no CSQ data, i.e. splice variant
@@ -832,8 +927,9 @@ class CustomEncoder(json.JSONEncoder):
         takes an arbitrary object, and forms a JSON representation
         where the object doesn't have an easy string representation,
         transform to a valid object: set -> list, class -> dict
-        :param o:
-        :return:
+
+        Args:
+            o (): python object being JSON encoded
         """
 
         if is_dataclass(o):
@@ -857,8 +953,9 @@ def find_comp_hets(var_list: list[AbstractVariant], pedigree) -> CompHetDict:
         }
     }
 
-    :param var_list:
-    :param pedigree: peddy.Ped
+    Args:
+        var_list ():
+        pedigree (): Peddy.ped
     """
 
     # create an empty dictionary
@@ -915,8 +1012,7 @@ def filter_results(results: dict, singletons: bool) -> dict:
         results (): the results produced during this run
         singletons (bool): whether to read/write a singleton specific file
 
-    Returns:
-        the same results back-filtered to remove previous results
+    Returns: same results annotated with date-first-seen
     """
 
     historic_folder = get_config()['dataset_specific'].get('historic_results')
@@ -978,8 +1074,7 @@ def find_latest_file(
         start (str): the start of the filename, if applicable
         ext (): the type of files we're looking for
 
-    Returns:
-        most recent file path, or None
+    Returns: most recent file path, or None
     """
 
     if results_folder is None:
@@ -1015,8 +1110,7 @@ def date_annotate_results(
         current ():
         historic (): optionally, historic data
 
-    Returns:
-        the date-annotated results and cumulative data
+    Returns: date-annotated results and cumulative data
     """
 
     # if there's no historic data, make some
@@ -1045,7 +1139,7 @@ def date_annotate_results(
 
                     # add any new categories
                     for cat in new_cats:
-                        hist['categories'][cat] = GRANULAR
+                        hist['categories'][cat] = get_granular_date()
 
                 # same categories, new support
                 elif new_sups := [
@@ -1054,7 +1148,6 @@ def date_annotate_results(
                     hist['support_vars'].extend(new_sups)
 
                 # otherwise alter the first_seen date
-                # todo first_seen is the wrong nomenclature here
                 else:
                     # choosing to take the latest _new_ category date
                     recent = sorted(hist['categories'].values(), reverse=True)[0]
@@ -1063,7 +1156,7 @@ def date_annotate_results(
             # totally new variant
             else:
                 historic[sample][var_id] = {
-                    'categories': {cat: GRANULAR for cat in current_cats},
+                    'categories': {cat: get_granular_date() for cat in current_cats},
                     'support_vars': var.support_vars,
                 }
 
