@@ -1,5 +1,5 @@
 cloudpathlib[all]>=0.9.0
-cpg-utils-ms>=1.2.4
+cpg-utils-ms>=1.3.3
 cpg-workflows-ms>=0.1.7
 cyvcf2>=0.30.18
 dill>=0.3.5.1
@@ -14,3 +14,4 @@ sample-metadata-ms>=0.7.1
 seqr-loader>=1.2.5
 analysis-runner-ms>=0.9.8
 tabulate>=0.8.9
+openpyxl>=3.1.0
