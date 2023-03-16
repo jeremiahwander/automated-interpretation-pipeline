@@ -17,10 +17,10 @@ from peddy.peddy import Ped
 
 from cpg_utils import to_path
 from cpg_utils.config import get_config
-from reanalysis.utils import read_json_from_path
+from reanalysis.utils import read_json_from_path, get_cohort_config
 
 
-CATEGORY_ORDERING = ['any', '1', '2', '3', 'de_novo', '5', 'support']
+CATEGORY_ORDERING = ['any', '1', '2', '3', '4', '5', 'pm5', 'support']
 JINJA_TEMPLATE_DIR = Path(__file__).absolute().parent / 'templates'
 
 
@@ -110,6 +110,17 @@ class HTMLBuilder:
         self.metadata = results_dict['metadata']
         self.panel_names = {panel['name'] for panel in self.metadata['panels']}
 
+        # pull out forced panel matches
+        cohort_panels = get_cohort_config().get('cohort_panels', [])
+        self.forced_panels = [
+            panel for panel in self.metadata['panels'] if panel['id'] in cohort_panels
+        ]
+        self.forced_panel_names = {
+            panel['name']
+            for panel in self.metadata['panels']
+            if panel['id'] in cohort_panels
+        }
+
         # Process samples and variants
         self.samples = []
         for sample, content in results_dict['results'].items():
@@ -129,7 +140,10 @@ class HTMLBuilder:
     ) -> tuple[pd.DataFrame, list[str], list[str]]:
         """
         Run the numbers across all variant categories
-        :return:
+        Treat each primary-secondary comp-het pairing as one event
+        i.e. the thing being counted here is the number of events
+        which passed through the MOI process, not the absolute number
+        of variants in the report
         """
 
         category_count = {key: [] for key in CATEGORY_ORDERING}
@@ -147,15 +161,26 @@ class HTMLBuilder:
 
             # iterate over the list of variants
             for variant in sample.variants:
-                var_string = str(variant)
-                unique_variants['any'].add(var_string)
-                sample_variants['any'].add(var_string)
 
-                # find all categories associated with this variant
-                # for each category, add to corresponding list and set
-                for category_value in variant.var_data.get('categories'):
-                    sample_variants[category_value].add(var_string)
-                    unique_variants[category_value].add(var_string)
+                # create a set for all unique versions
+                variant_variations = set()
+                if variant.support_vars:
+                    for support in variant.support_vars:
+                        variant_variations.add(
+                            '_'.join(sorted([str(variant), support]))
+                        )
+                else:
+                    variant_variations.add(str(variant))
+
+                for var_string in variant_variations:
+                    unique_variants['any'].add(var_string)
+                    sample_variants['any'].add(var_string)
+
+                    # find all categories associated with this variant
+                    # for each category, add to corresponding list and set
+                    for category_value in variant.var_data.get('categories'):
+                        sample_variants[category_value].add(var_string)
+                        unique_variants[category_value].add(var_string)
 
                 # remove any external labels associated with this sample/variant.
                 if sample.name in ext_label_map:
@@ -216,6 +241,10 @@ class HTMLBuilder:
                 ]
             ),
         }
+
+        if self.forced_panels:
+            tables['Cohort Matched Panels'] = pd.DataFrame(self.forced_panels)
+
         return tables
 
     def write_html(self, output_path: str):
@@ -334,7 +363,9 @@ class Variant:
         self.var_data = variant_dict['var_data']
         self.supported = variant_dict['supported']
         self.support_vars = variant_dict['support_vars']
-        self.flags = variant_dict['flags']
+        self.warning_flags = variant_dict['flags']
+        self.panel_flags = variant_dict['panels'].get('matched', [])
+        self.forced_matches = variant_dict['panels'].get('forced', [])
         self.reasons = variant_dict['reasons']
         self.genotypes = variant_dict['genotypes']
         self.sample = sample
@@ -345,16 +376,6 @@ class Variant:
         for gene_id in variant_dict['gene'].split(','):
             symbol = gene_map.get(gene_id, {'symbol': gene_id})['symbol']
             self.genes.append((gene_id, symbol))
-
-        # Separate phenotype match flags from waring flags
-        # TODO: should we keep these separate in the report?
-        self.warning_flags = []
-        self.panel_flags = []
-        for flag in variant_dict['flags']:
-            if flag in sample.html_builder.panel_names:
-                self.panel_flags.append(flag)
-            else:
-                self.warning_flags.append(flag)
 
         # Summaries CSQ strings
         (

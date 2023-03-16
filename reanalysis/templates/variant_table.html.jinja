@@ -8,6 +8,7 @@
     <th class="group-false sorter-shortDate" data-date-format="yyyymmdd">First Seen</th>
     <th class="group-false">MANE CSQ</th>
     <th class="group-false">Clinvar</th>
+    <th class="group-false">PM5 ClinVar</th>
     <th class="group-false">Ext. Label</th>
     <th class="group-false">Flags</th>
     <th class="group-false">Support</th>
@@ -46,6 +47,10 @@
         <i class="bi-person-check-fill text-success" data-bs-toggle="tooltip" data-bs-placement="top"
             data-bs-title="Phenotype match: {{variant.panel_flags|join(', ')}}"></i>
         {% endif %}
+        {% if variant.forced_matches %}
+        <i class="bi-person-check-fill text-info" data-bs-toggle="tooltip" data-bs-placement="top"
+            data-bs-title="Cohort panels: {{variant.forced_matches|join(', ')}}"></i>
+        {% endif %}
         <br>
         {% set pipe = joiner(", ") %}
         ({% for moi in variant.reasons -%}
@@ -83,6 +88,18 @@
             <br>
             {% for i in range(variant.var_data.info.clinvar_stars|int) -%}
                 <i class="bi-star"></i>
+            {%- endfor %}
+        {% endif %}
+    </td>
+    <td>
+        {# PM5 ClinVar #}
+        {% if 'pm5' in variant.var_data.categories %}
+            {% for allele, stars in variant.var_data.info.pm5_data.items() %}
+
+                <a href="http://www.ncbi.nlm.nih.gov/clinvar?term={{allele}}[alleleid]"
+                    target="_blank">
+                    {{allele}}
+                </a>
             {%- endfor %}
         {% endif %}
     </td>
