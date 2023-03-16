@@ -102,6 +102,11 @@ def handle_clinvar() -> tuple[Job | None, str]:
         the path to the current clinvar summary file
     """
 
+    if clinvar_table := get_config()['workflow'].get('forced_clinvar'):
+        logging.info(f'This run will be using the Clinvar data in {clinvar_table}')
+        if to_path(clinvar_table).exists():
+            return None, clinvar_table
+
     # is it time to re-process clinvar?
     clinvar_prefix = dataset_path(
         f'clinvar_summaries/{datetime.now().strftime("%Y_%m")}'
@@ -167,21 +172,19 @@ def setup_mt_to_vcf(input_file: str) -> Job:
 
 
 def handle_panelapp_job(
-    participant_panels: str | None = None,
-    previous: str | None = None,
-    prior_job: Job | None = None,
+    participant_panels: str | None = None, prior_job: Job | None = None
 ) -> Job:
     """
     creates and runs the panelapp query job
 
     Args:
         participant_panels (str):
-        previous (str): optional, path to a prior gene list
         prior_job ():
 
     Returns:
         the Job, which other parts of the workflow may become dependent on
     """
+
     panelapp_job = get_batch().new_job(name='query panelapp')
     set_job_resources(panelapp_job, prior_job=prior_job)
     copy_common_env(panelapp_job)
@@ -191,9 +194,6 @@ def handle_panelapp_job(
 
     if participant_panels is not None:
         query_cmd += f'--panels {participant_panels} '
-
-    if previous is not None:
-        query_cmd += f'--previous {previous} '
 
     logging.info(f'PanelApp Command: {query_cmd}')
     panelapp_job.command(query_cmd)
@@ -236,7 +236,7 @@ def handle_results_job(
     labelled_vcf: str,
     pedigree: str,
     input_path: str,
-    output_dict: dict[str, dict[str, str]],
+    output_dict: dict[str, str],
     prior_job: Job | None = None,
     participant_panels: str | None = None,
 ):
@@ -284,8 +284,7 @@ def main(
     input_path: str,
     pedigree: str,
     participant_panels: str | None,
-    previous: str | None,
-    singletons: str | None = None,
+    singletons: bool = False,
     skip_annotation: bool = False,
 ):
     """
@@ -295,8 +294,7 @@ def main(
         input_path (): path to the VCF/MT
         pedigree (): family file for this analysis
         participant_panels (): file containing panels-per-family (optional)
-        previous (): gene panel data from prior analysis (optional)
-        singletons (): optional second Pedigree file without families
+        singletons (): run as Singletons (with appropriate output paths)
         skip_annotation (): if the input is annotated, don't re-run
     """
 
@@ -308,15 +306,19 @@ def main(
 
     # region : output files lookup
     # separate paths for familial and singleton analysis
+    if singletons:
+        assert (
+            'singleton' in get_config()['workflow']['output_prefix']
+        ), 'To keep singletons separate, include "singleton" in the file path'
+
+    # modify output paths depending on analysis type
     output_dict = {
-        'default': {
-            'web_html': output_path('summary_output.html', 'web'),
-            'results': output_path('summary_results.json', 'analysis'),
-        },
-        'singletons': {
-            'web_html': output_path('singleton_output.html', 'web'),
-            'results': output_path('singleton_results.json', 'analysis'),
-        },
+        'web_html': output_path(
+            f'{"singleton" if singletons else "summary"}_output.html', 'web'
+        ),
+        'results': output_path(
+            f'{"singleton" if singletons else "summary"}_results.json', 'analysis'
+        ),
     }
     # endregion
 
@@ -410,9 +412,7 @@ def main(
     #  region : query panelapp
     if not to_path(PANELAPP_JSON_OUT).exists():
         prior_job = handle_panelapp_job(
-            participant_panels=participant_panels,
-            prior_job=prior_job,
-            previous=previous,
+            participant_panels=participant_panels, prior_job=prior_job
         )
     # endregion
 
@@ -432,29 +432,16 @@ def main(
         get_batch().read_input_group(vcf=HAIL_VCF_OUT, tbi=HAIL_VCF_OUT + '.tbi').vcf
     )
 
-    # region : singleton decisions
-    # if singleton PED supplied, also run as singletons w/separate outputs
-    analysis_rounds = [(pedigree_in_batch, 'default')]
-    if singletons and to_path(singletons).exists():
-        to_path(singletons).copy(
-            output_path(f'singletons_{EXECUTION_TIME}.fam', 'analysis')
-        )
-        pedigree_singletons = get_batch().read_input(singletons)
-        analysis_rounds.append((pedigree_singletons, 'singletons'))
-    # endregion
-
-    # region : run results job
+    # region: run results job
     # pointing this analysis at the updated config file, including input metadata
-    for relationships, analysis_index in analysis_rounds:
-        logging.info(f'running analysis in {analysis_index} mode')
-        handle_results_job(
-            labelled_vcf=labelled_vcf_in_batch,
-            pedigree=relationships,
-            input_path=input_path,
-            output_dict=output_dict[analysis_index],
-            prior_job=prior_job,
-            participant_panels=participant_panels,
-        )
+    handle_results_job(
+        labelled_vcf=labelled_vcf_in_batch,
+        pedigree=pedigree_in_batch,
+        input_path=input_path,
+        output_dict=output_dict,
+        prior_job=prior_job,
+        participant_panels=participant_panels,
+    )
     # endregion
 
     # region : copy data out
@@ -493,12 +480,11 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-i', help='variant data to analyse', required=True)
     parser.add_argument('--pedigree', help='in Plink format', required=True)
-    parser.add_argument('--singletons', help='singletons in Plink format')
     parser.add_argument('--participant_panels', help='per-participant panel details')
     parser.add_argument(
-        '--previous',
-        help='JSON file containing Gene Panel details from a prior run',
-        default=None,
+        '--singletons',
+        help='boolean, set if this run is a singleton pedigree',
+        action='store_true',
     )
     parser.add_argument(
         '--skip_annotation',
@@ -510,7 +496,6 @@ if __name__ == '__main__':
         input_path=args.i,
         pedigree=args.pedigree,
         participant_panels=args.participant_panels,
-        previous=args.previous,
         skip_annotation=args.skip_annotation,
         singletons=args.singletons,
     )
