@@ -17,6 +17,7 @@ from peddy.peddy import Ped
 
 from cpg_utils import to_path
 from cpg_utils.config import get_config
+
 from reanalysis.utils import read_json_from_path, get_cohort_config
 
 
@@ -89,21 +90,17 @@ class HTMLBuilder:
                 ), f'Seqr-related key required but not present: {seqr_key}'
 
         # Optionally read in the labels file
-        ext_labels_path = get_config()['dataset_specific'].get('external_labels')
-        self.ext_labels = {}
-
-        if ext_labels_path and to_path(ext_labels_path).exists():
-            self.ext_labels = read_json_from_path(ext_labels_path)
-
-            # Labels file should be a nested dictionary of sample IDs and variant identifiers
-            # with a list of corresponding label values, e.g.:
-            # {
-            #     "sample1": {
-            #         "1-123456-A-T": ["label1", "label2"],
-            #         "1-123457-A-T": ["label1"]
-            #     },
-            # }
-
+        # This file should be a nested dictionary of sample IDs and variant identifiers
+        # with a list of corresponding label values, e.g.:
+        # {
+        #     "sample1": {
+        #         "1-123456-A-T": ["label1", "label2"],
+        #         "1-123457-A-T": ["label1"]
+        #     },
+        # }
+        self.ext_labels = read_json_from_path(
+            get_config()['dataset_specific'].get('external_labels'), {}
+        )
 
         # Read results file
         results_dict = read_json_from_path(results)
@@ -182,10 +179,9 @@ class HTMLBuilder:
                         sample_variants[category_value].add(var_string)
                         unique_variants[category_value].add(var_string)
 
-                # remove any external labels associated with this sample/variant.
-                if sample.name in ext_label_map:
-                    ext_label_map[sample.name].pop(var_string, None)
-
+                    # remove any external labels associated with this sample/variant.
+                    if sample.name in ext_label_map:
+                        ext_label_map[sample.name].pop(var_string, None)
 
             category_count['any'].append(len(sample_variants['any']))
 
@@ -194,9 +190,17 @@ class HTMLBuilder:
                 key_list.append(len(sample_variants[key]))
 
         # Extract the list of unused ext labels
-        # TODO, this is potentially not treating external sample IDs and internal sample IDs correctly.
+        # TODO potentially not treating external and internal sample IDs correctly.
         unused_ext_labels = [
-            {"sample": sample_id, "sample_ext": self.seqr.get(sample_id, sample_id), "variant": var_id, "labels": labels} for sample_id, var_dict in ext_label_map.items() for var_id, labels in var_dict.items()]
+            {
+                'sample': sample_id,
+                'sample_ext': self.seqr.get(sample_id, sample_id),
+                'variant': var_id,
+                'labels': labels,
+            }
+            for sample_id, var_dict in ext_label_map.items()
+            for var_id, labels in var_dict.items()
+        ]
 
         summary_dicts = [
             {
@@ -247,12 +251,20 @@ class HTMLBuilder:
 
         return tables
 
-    def write_html(self, output_path: str):
+    def write_html(self, output_filepath: str):
         """
         Uses the results to create the HTML tables
         writes all content to the output path
+
+        Args:
+            output_filepath ():
         """
-        summary_table, zero_categorised_samples, unused_ext_labels = self.get_summary_stats()
+
+        (
+            summary_table,
+            zero_categorised_samples,
+            unused_ext_labels,
+        ) = self.get_summary_stats()
 
         template_context = {
             'metadata': self.metadata,
@@ -261,7 +273,7 @@ class HTMLBuilder:
             'seqr_project': get_config()['dataset_specific'].get('seqr_project'),
             'meta_tables': {},
             'forbidden_genes': [],
-            'zero_categorised_samples': zero_categorised_samples,
+            'zero_categorised_samples': [],
             'unused_ext_labels': unused_ext_labels,
             'summary_table': None,
         }
@@ -292,7 +304,7 @@ class HTMLBuilder:
         )
         template = env.get_template('index.html.jinja')
         content = template.render(**template_context)
-        to_path(output_path).write_text(
+        to_path(output_filepath).write_text(
             '\n'.join(line for line in content.split('\n') if line.strip())
         )
 
@@ -307,7 +319,7 @@ class Sample:
         name: str,
         metadata: dict,
         variants: list[dict[str, Any]],
-        ext_labels: dict,
+        ext_labels: dict[str, str],
         html_builder: HTMLBuilder,
     ):
         self.name = name
@@ -323,17 +335,36 @@ class Sample:
 
         # Ingest variants excluding any on the forbidden gene list
         self.variants = [
-            Variant(variant_dict, self, self._ext_var_labels_from_variant_dict(variant_dict, ext_labels), html_builder.panelapp['genes'])
+            Variant(
+                variant_dict,
+                self,
+                self._ext_var_labels_from_variant_dict(variant_dict, ext_labels),
+                html_builder.panelapp['genes'],
+            )
             for variant_dict in variants
             if not variant_in_forbidden_gene(variant_dict, html_builder.forbidden_genes)
         ]
 
-    def _ext_var_labels_from_variant_dict(self, variant_dict: dict, ext_labels: dict) -> list:
+    def _ext_var_labels_from_variant_dict(
+        self, variant_dict: dict, ext_labels: dict
+    ) -> list:
         """
         Returns a list of external labels specific to the variant (for this sample)
+
+        Args:
+            variant_dict ():
+            ext_labels ():
+
+        Returns:
+
         """
 
-        var_string = f"{variant_dict['var_data']['coords']['chrom']}-{variant_dict['var_data']['coords']['pos']}-{variant_dict['var_data']['coords']['ref']}-{variant_dict['var_data']['coords']['alt']}"
+        var_string = (
+            f"{variant_dict['var_data']['coords']['chrom']}-"
+            f"{variant_dict['var_data']['coords']['pos']}-"
+            f"{variant_dict['var_data']['coords']['ref']}-"
+            f"{variant_dict['var_data']['coords']['alt']}"
+        )
         return ext_labels.get(var_string, [])
 
     def __str__(self):
@@ -388,10 +419,22 @@ class Variant:
         return f'{self.chrom}-{self.pos}-{self.ref}-{self.alt}'
 
     def same_locus(self, other: object) -> bool:
+        """
+        method of determining an exactly matching variant
+        Args:
+            other (Variant):
+
+        Returns:
+            True if chrom, position, and alleles all match
+        """
         if not isinstance(other, Variant):
             return False
-        else:
-            return self.chrom == other.chrom and self.pos == other.pos and self.ref == other.ref and self.alt == other.alt
+        return (
+            self.chrom == other.chrom
+            and self.pos == other.pos
+            and self.ref == other.ref
+            and self.alt == other.alt
+        )
 
     def parse_csq(self):
         """
@@ -436,10 +479,10 @@ if __name__ == '__main__':
     parser.add_argument('--results', help='Path to analysis results', required=True)
     parser.add_argument('--pedigree', help='PED file', required=True)
     parser.add_argument('--panelapp', help='PanelApp data', required=True)
-    parser.add_argument('--out_path', help='results path', required=True)
+    parser.add_argument('--output', help='final HTML filename', required=True)
     args = parser.parse_args()
 
     html = HTMLBuilder(
         results=args.results, panelapp=args.panelapp, pedigree=args.pedigree
     )
-    html.write_html(output_path=args.out_path)
+    html.write_html(output_filepath=args.output)
