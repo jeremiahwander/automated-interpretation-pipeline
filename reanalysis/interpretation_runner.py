@@ -140,6 +140,7 @@ def handle_clinvar() -> tuple[Job | None, str]:
     set_job_resources(summarise, prior_job=bash_job)
 
     script_path = get_git_root_relative_path_from_absolute(summarise_clinvar_entries.__file__)
+    summarise.command('cd /')
     summarise.command(
         f'python3 {script_path} '
         f'-s {bash_job.subs} '
@@ -167,6 +168,7 @@ def setup_mt_to_vcf(input_file: str) -> Job:
     cmd = f'python3 {script_path} --input {input_file} --output {INPUT_AS_VCF}'
 
     logging.info(f'Command used to convert MT: {cmd}')
+    job.command('cd /')
     job.command(cmd)
     return job
 
@@ -196,6 +198,7 @@ def handle_panelapp_job(
         query_cmd += f'--panels {participant_panels} '
 
     logging.info(f'PanelApp Command: {query_cmd}')
+    panelapp_job.command('cd /')
     panelapp_job.command(query_cmd)
     return panelapp_job
 
@@ -228,6 +231,7 @@ def handle_hail_filtering(
     )
 
     logging.info(f'Labelling Command: {labelling_command}')
+    labelling_job.command('cd /')
     labelling_job.command(labelling_command)
     return labelling_job
 
@@ -277,6 +281,7 @@ def handle_results_job(
         f'--out_path {output_dict["web_html"]}'
     )
     logging.info(f'Results command: {results_command}')
+    results_job.command('cd /')
     results_job.command(results_command)
 
 
