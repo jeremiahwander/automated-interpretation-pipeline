@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+
 """
 runs between classification and publishing results
 takes a number of inputs:
@@ -20,7 +23,6 @@ from datetime import datetime
 from typing import Union
 
 import click
-import peddy
 from cyvcf2 import VCFReader
 from peddy.peddy import Ped
 
@@ -328,7 +330,7 @@ def count_families(pedigree: Ped, samples: list[str]) -> dict:
 
 
 def prepare_results_shell(
-    vcf_samples: list[str], pedigree: peddy.Ped, panel_data: dict | None, panelapp: dict
+    vcf_samples: list[str], pedigree: Ped, panel_data: dict | None, panelapp: dict
 ) -> dict:
     """
     prepare an empty dictionary for the results, feat. participant metadata

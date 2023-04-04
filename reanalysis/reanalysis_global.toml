@@ -23,6 +23,12 @@ scatter_count = 100
 vcf_size_in_gb = 18  # if the input is a VCF, specify enough storage to fit it
 sequencing_type = 'genome'
 
+# optionally allow for running a different HTML script
+presentation = 'cpg'
+
+# where to register outputs, if at all
+register = 'metamist'
+
 [panels]
 default_panel = 137
 panelapp = 'https://panelapp.agha.umccr.org/api/v1/panels'
@@ -42,7 +48,7 @@ gnomad_max_hemi = 1
 
 [csq]
 # variables affecting how the VCF variants are parsed, and AnalysisVariant objects are populated
-csq_string = ['consequence', 'symbol', 'gene', 'feature', 'mane_select', 'biotype', 'exon', 'hgvsc', 'hgvsp', 'variant_class', 'ensp', 'lof']
+csq_string = ['allele', 'consequence', 'symbol', 'gene', 'feature', 'mane_select', 'biotype', 'exon', 'hgvsc', 'hgvsp', 'cdna_position', 'cds_position', 'amino_acids', 'protein_position', 'variant_class', 'ensp', 'lof', 'sift', 'polyphen']
 
 [filter]
 # variables for the hail operations, including CSQ sets and filter thresholds
@@ -54,13 +60,12 @@ codon_table = "gs://cpg-common-test/clinvar/codon_indexed.ht"
 critical_csq = ['frameshift_variant', 'splice_acceptor_variant', 'splice_donor_variant', 'start_lost', 'stop_gained', 'stop_lost', 'transcript_ablation']
 gerp = 1.0
 eigen = 0.25
-lenient_de_novo = true
+max_parent_ab = 0.05
 minimum_depth = 10
 polyphen = 0.99
 revel = 0.77
 sift = 0.0
 spliceai = 0.5
-
 
 [hail]
 cancel_after_n_failures = 1
@@ -167,7 +172,7 @@ seqr_clinvar = "hail-az://azcpg001sa/reference/seqr/v0-1/clinvar.GRCh38.ht"
 [images]
 dragmap = "azcpg001acr.azurecr.io/cpg-common/images/dragmap:1.3.0"
 cpg_workflows = "azcpg001acr.azurecr.io/cpg-common/images/cpg_workflows:latest"
-cpg_aip = "azcpg001acr.azurecr.io/cpg-common/images/cpg_aip:0.1.2"
+cpg_aip = "azcpg001acr.azurecr.io/cpg-common/images/cpg_aip:0.1.3"
 bcftools = "azcpg001acr.azurecr.io/cpg-common/images/bcftools:1.16"
 bedtools = "azcpg001acr.azurecr.io/cpg-common/images/bedtools:2.30.0"
 cellregmap = "azcpg001acr.azurecr.io/cpg-common/images/cellregmap:0.0.3"
