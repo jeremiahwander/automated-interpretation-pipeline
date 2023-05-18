@@ -2,7 +2,6 @@
 classes and methods shared across reanalysis components
 """
 
-
 from collections import defaultdict
 from dataclasses import dataclass, is_dataclass, field
 from datetime import datetime
@@ -19,7 +18,6 @@ import requests
 
 from cpg_utils import to_path
 from cpg_utils.config import get_config
-from cpg_utils.git import get_git_repo_root
 
 # pylint: disable=too-many-lines,too-many-instance-attributes,global-statement
 
@@ -38,7 +36,6 @@ X_CHROMOSOME = {'X'}
 TODAY = datetime.now().strftime('%Y-%m-%d_%H:%M')
 
 _GRANULAR_DATE: str | None = None
-
 
 # most lenient to most conservative
 # usage = if we have two MOIs for the same gene, take the broadest
@@ -60,9 +57,12 @@ def get_granular_date():
     global _GRANULAR_DATE
     if _GRANULAR_DATE is None:
         # allow an override here - synthetic historic runs
-        if fake_date := get_config()['workflow'].get('fake_date'):
-            _GRANULAR_DATE = fake_date
-        else:
+        try:
+            if fake_date := get_config()['workflow'].get('fake_date'):
+                _GRANULAR_DATE = fake_date
+        except AssertionError:
+            logging.info(f'No config loaded, falling back to {_GRANULAR_DATE}')
+        if _GRANULAR_DATE is None:
             _GRANULAR_DATE = datetime.now().strftime('%Y-%m-%d')
     return _GRANULAR_DATE
 
@@ -458,7 +458,7 @@ class AbstractVariant:
         for clinvar_entry in pm5_strings:
 
             # fragment each entry
-            allele_id, _rating, stars = clinvar_entry.split('::')
+            allele_id, stars = clinvar_entry.split('::')
 
             # never consider the exact match, pm5 is always separate
             if allele_id == current_clinvar:

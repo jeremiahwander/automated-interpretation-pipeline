@@ -13,12 +13,10 @@ i.e. the full path to the output file is crucial, and forcing steps to
 re-run currently requires the deletion of previous outputs
 """
 
-
 # pylint: disable=too-many-branches
 
 
 import logging
-import os
 import sys
 from argparse import ArgumentParser
 from datetime import datetime
@@ -30,15 +28,14 @@ from cpg_utils.config import get_config
 from cpg_utils.hail_batch import (
     authenticate_cloud_credentials_in_job,
     copy_common_env,
-    dataset_path,
     output_path,
+    query_command,
 )
 from cpg_utils.git import get_git_root_relative_path_from_absolute
 
 from cpg_workflows.batch import get_batch
-from cpg_workflows.jobs.seqr_loader import annotate_cohort_jobs
-from cpg_workflows.jobs.vep import add_vep_jobs
-from cpg_workflows.jobs.joint_genotyping import add_make_sitesonly_job
+from reanalysis.vep_jobs import add_vep_jobs
+from reanalysis.sites_only import add_make_sitesonly_job
 
 from reanalysis import (
     hail_filter_and_label,
@@ -46,11 +43,10 @@ from reanalysis import (
     metamist_registration,
     mt_to_vcf,
     query_panelapp,
-    summarise_clinvar_entries,
     validate_categories,
+    seqr_loader,
 )
 from reanalysis.utils import FileTypes, identify_file_type
-
 
 # region: CONSTANTS
 # exact time that this run occurred
@@ -61,6 +57,8 @@ ANNOTATED_MT = output_path('annotated_variants.mt')
 HAIL_VCF_OUT = output_path('hail_categorised.vcf.bgz', 'analysis')
 INPUT_AS_VCF = output_path('prior_to_annotation.vcf.bgz')
 PANELAPP_JSON_OUT = output_path('panelapp_data.json', 'analysis')
+
+
 # endregion
 
 
@@ -68,7 +66,7 @@ def set_job_resources(
     job: Job,
     prior_job: Job | None = None,
     memory: str = 'standard',
-    storage: str = '20GiB',
+    storage: str = '20Gi',
 ):
     """
     apply resources to the job
@@ -94,62 +92,6 @@ def set_job_resources(
             job.depends_on(prior_job)
 
     authenticate_cloud_credentials_in_job(job)
-
-
-def handle_clinvar() -> tuple[Job | None, str]:
-    """
-    set up a job to handle the clinvar summarising
-
-    Returns:
-        the batch job for creating the new summary
-        the path to the current clinvar summary file
-    """
-
-    if clinvar_table := get_config()['workflow'].get('forced_clinvar'):
-        logging.info(f'This run will be using the Clinvar data in {clinvar_table}')
-        if to_path(clinvar_table).exists():
-            return None, clinvar_table
-
-    # is it time to re-process clinvar?
-    clinvar_prefix = dataset_path(
-        f'clinvar_summaries/{datetime.now().strftime("%Y_%m")}'
-    )
-    clinvar_summary = os.path.join(clinvar_prefix, 'clinvar.ht')
-
-    if to_path(clinvar_summary).exists():
-        return None, clinvar_summary
-
-    # create a bash job to copy data from remote
-    bash_job = get_batch().new_bash_job(name='copy clinvar files to local')
-    set_job_resources(bash_job)
-
-    directory = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/'
-    sub_file = 'submission_summary.txt.gz'
-    var_file = 'variant_summary.txt.gz'
-
-    bash_job.command(
-        (
-            f'wget -q {directory}{sub_file} -O {bash_job.subs} && '
-            f'wget -q {directory}{var_file} -O {bash_job.vars}'
-        )
-    )
-
-    # write output files
-    get_batch().write_output(bash_job.subs, os.path.join(clinvar_prefix, sub_file))
-    get_batch().write_output(bash_job.vars, os.path.join(clinvar_prefix, var_file))
-
-    # create a job to run the summary
-    summarise = get_batch().new_job(name='summarise clinvar')
-    set_job_resources(summarise, prior_job=bash_job)
-
-    script_path = get_git_root_relative_path_from_absolute(summarise_clinvar_entries.__file__)
-    summarise.command(
-        f'python3 {script_path} '
-        f'-s {bash_job.subs} '
-        f'-v {bash_job.vars} '
-        f'-o {os.path.join(clinvar_prefix, "clinvar.ht")}'
-    )
-    return summarise, clinvar_summary
 
 
 def setup_mt_to_vcf(input_file: str) -> Job:
@@ -203,16 +145,13 @@ def handle_panelapp_job(
     return panelapp_job
 
 
-def handle_hail_filtering(
-    plink_file: str, clinvar: str, prior_job: Job | None = None
-) -> BashJob:
+def handle_hail_filtering(plink_file: str, prior_job: Job | None = None) -> BashJob:
     """
     hail-query backend version of the filtering implementation
     use the init query service instead of running inside dataproc
 
     Args:
         plink_file (str): path to a pedigree
-        clinvar (str): path to the clinvar re-summary
         prior_job ():
 
     Returns:
@@ -220,14 +159,13 @@ def handle_hail_filtering(
     """
 
     labelling_job = get_batch().new_job(name='hail filtering')
-    set_job_resources(labelling_job, prior_job=prior_job, memory='32GiB')
+    set_job_resources(labelling_job, prior_job=prior_job, memory='32Gi')
     script_path = get_git_root_relative_path_from_absolute(hail_filter_and_label.__file__)
     labelling_command = (
         f'python3 {script_path} '
         f'--mt {ANNOTATED_MT} '
         f'--panelapp {PANELAPP_JSON_OUT} '
         f'--plink {plink_file} '
-        f'--clinvar {clinvar} '
     )
 
     logging.info(f'Labelling Command: {labelling_command}')
@@ -433,8 +371,8 @@ def main(
     }
     # endregion
 
-    # find clinvar table, and re-process if required
-    prior_job, clinvar_table = handle_clinvar()
+    # start the dependency graph
+    prior_job = None
 
     # region : MT to VCF
     # determine the input type - if MT, decompose to VCF prior to annotation
@@ -474,6 +412,8 @@ def main(
             }
         )
         logging.info(input_path)
+        vcf_storage = get_config()['workflow'].get('vcf_size_in_gb', 150) + 10
+        logging.info(f'Storage: {vcf_storage}')
         sites_job, _siteonly_resource_group = add_make_sitesonly_job(
             b=get_batch(),
             input_vcf=input_vcf_in_batch,
@@ -488,8 +428,9 @@ def main(
 
 
         # set the job dependency and cycle the 'prior' job
-        if prior_job:
+        if prior_job and sites_job:
             sites_job.depends_on(prior_job)
+            prior_job = sites_job
 
         vep_ht_tmp = output_path('vep_annotations.ht', 'tmp')
 
@@ -503,21 +444,28 @@ def main(
         )
 
         # assign sites-only job as an annotation dependency
-        for job in vep_jobs:
-            job.depends_on(sites_job)
+        if vep_jobs and prior_job:
+            for job in vep_jobs:
+                job.depends_on(prior_job)
+            prior_job = vep_jobs[-1]
 
-        # Apply the HT of annotations to the VCF, save as MT
-        anno_job = annotate_cohort_jobs(
-            b=get_batch(),
-            vcf_path=to_path(input_path),
-            vep_ht_path=to_path(vep_ht_tmp),
-            out_mt_path=to_path(ANNOTATED_MT),
-            checkpoint_prefix=to_path(output_path('annotation_temp', 'tmp')),
-            depends_on=vep_jobs,
-            use_dataproc=False,
+        j = get_batch().new_job(f'annotate cohort')
+        j.image(get_config()['workflow']['driver_image'])
+        j.command(
+            query_command(
+                seqr_loader,
+                seqr_loader.annotate_cohort.__name__,
+                str(input_path),
+                str(ANNOTATED_MT),
+                str(vep_ht_tmp),
+                output_path('annotation_temp', 'tmp'),
+                setup_gcp=True,
+            )
         )
+        if prior_job:
+            j.depends_on(prior_job)
         output_dict['annotated_mt'] = ANNOTATED_MT
-        prior_job = anno_job[-1]
+        prior_job = j
     # endregion
 
     #  region : query panelapp
@@ -534,7 +482,7 @@ def main(
     if not to_path(HAIL_VCF_OUT).exists():
         logging.info(f"The Labelled VCF {HAIL_VCF_OUT!r} doesn't exist; regenerating")
         prior_job = handle_hail_filtering(
-            prior_job=prior_job, plink_file=pedigree_in_batch, clinvar=clinvar_table
+            prior_job=prior_job, plink_file=pedigree_in_batch
         )
         output_dict['hail_vcf'] = HAIL_VCF_OUT
     # endregion
