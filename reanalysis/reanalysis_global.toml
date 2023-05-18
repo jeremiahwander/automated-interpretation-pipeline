@@ -17,6 +17,9 @@ analysis = "hail-az://sevgen002sa/test-analysis"
 tmp = "hail-az://sevgen002sa/test-tmp"
 web_url = "https://test-web-azcpg001.azurewebsites.net/severalgenomes"
 
+[storage.common]
+analysis = "hail-az//sevgen002sa/test/common/analysis"
+
 [workflow]
 name = 'AIP'
 scatter_count = 50

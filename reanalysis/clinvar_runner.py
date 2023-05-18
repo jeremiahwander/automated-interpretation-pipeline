@@ -18,6 +18,7 @@ from cpg_utils.hail_batch import (
     authenticate_cloud_credentials_in_job,
     query_command,
 )
+from cpg_utils.git import get_git_root_relative_path_from_absolute
 from cpg_workflows.batch import get_batch
 
 from reanalysis import clinvar_by_codon, summarise_clinvar_entries, seqr_loader
@@ -72,7 +73,7 @@ def generate_clinvar_table(
     )
     if date:
         command_options += f' -d {date}'
-    summarise.command(f'python3 {summarise_clinvar_entries.__file__} {command_options}')
+    summarise.command(f'python3 {get_git_root_relative_path_from_absolute(summarise_clinvar_entries.__file__)} {command_options}')
 
     return summarise
 
@@ -198,7 +199,7 @@ def main(date: str | None = None, folder: str | None = None):
         ).storage('20G')
         authenticate_cloud_credentials_in_job(clinvar_by_codon_job)
         clinvar_by_codon_job.command(
-            f'python3 {clinvar_by_codon.__file__} '
+            f'python3 {get_git_root_relative_path_from_absolute(clinvar_by_codon.__file__)} '
             f'--mt_path {annotated_clinvar} '
             f'--write_path {clinvar_pm5_path}'
         )
