@@ -307,7 +307,7 @@ def vep_one(
     vep_mount_path = reference_path('vep_mount')
     data_mount = to_path(f'/{vep_mount_path.drive}')
     j.cloudfuse(vep_mount_path.drive, str(data_mount), read_only=True)
-    vep_dir = data_mount / '/'.join(vep_mount_path.parts[2:])
+    vep_dir = data_mount / vep_mount_path.blob
     loftee_conf = {
         'loftee_path': '$LOFTEE_PLUGIN_PATH',
         'gerp_bigwig': f'{vep_dir}/gerp_conservation_scores.homo_sapiens.GRCh38.bw',
