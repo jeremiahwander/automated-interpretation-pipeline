@@ -13,11 +13,11 @@ CONFIG_PATH=hail-az://sevgen002sa/test/config-$(LC_ALL=C tr -dc A-Za-z0-9 </dev/
   # --deploy_config ~/sources/cpg/cpg-deploy/azure/deploy-config.prod.json \
   # --server_config ~/sources/cpg/cpg-deploy/aip/terraform.tfvars.json \
 python3 reanalysis/generate_workflow_config.py \
-  --dataset rgp \
+  --dataset severalgenomes \
   --access_level test \
   --driver_image azcpg001acr.azurecr.io/cpg-common/images/cpg_aip:latest \
-  --output_prefix "reanalysis_train_test_cpg/${DATE}" \
-  --extra_datasets severalgenomes rgp \
+  --output_prefix "reanalysis/${DATE}" \
+  --extra_datasets severalgenomes \
   --image_base azcpg001acr.azurecr.io/cpg-common/images \
   --reference_base hail-az://azcpg001sa/reference \
   --extra_configs reanalysis/reanalysis_global.toml reanalysis/reanalysis_cohort.toml \
@@ -28,7 +28,5 @@ python3 reanalysis/generate_workflow_config.py \
 
 export CPG_CONFIG_PATH=${CONFIG_PATH}
 python3 reanalysis/interpretation_runner.py \
-  -i hail-az://raregen001sa/test/reanalysis_train_test_cpg/2023-02-15/annotated_variants.mt \
-  --pedigree hail-az://raregen001sa/test/inputs/rgp/cpg/rgp_train_test_cpg.fam \
-  --participant_panels hail-az://raregen001sa/test/inputs/rgp/cpg/participant_panels.json \
-  --skip_annotation
+  -i hail-az://sevgen002sa/test/reanalysis/2022-11-15/prior_to_annotation.vcf.bgz \
+  --pedigree hail-az://sevgen002sa/test/reanalysis/pedigree.fam

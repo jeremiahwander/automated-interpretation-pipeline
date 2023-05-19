@@ -18,7 +18,8 @@ tmp = "hail-az://sevgen002sa/test-tmp"
 web_url = "https://test-web-azcpg001.azurewebsites.net/severalgenomes"
 
 [storage.common]
-analysis = "hail-az//sevgen002sa/test/common/analysis"
+analysis = "hail-az://sevgen002sa/test/common/analysis"
+tmp = "hail-az://sevgen002sa/test-tmp"
 
 [workflow]
 name = 'AIP'
