@@ -1,9 +1,6 @@
 [dataset_specific]
 description = "variables affecting how the final HTML report appears"
-external_lookup = "hail-az://raregen001sa/test/inputs/rgp/cpg/rgp_seqr_id_mapping_cpg.json"
-forbidden = "hail-az://raregen001sa/test/inputs/rgp/forbidden-empty.json"
-external_labels = "hail-az://raregen001sa/test/inputs/rgp/cpg/rgp_train_test_labels_cpg.json"
 
-seqr_instance = "http://seqr.broadinstitute.org"
-seqr_project = "R0384_rare_genomes_project_gen"
-seqr_lookup = "hail-az://raregen001sa/test/inputs/rgp/cpg/rgp_seqr_id_mapping_cpg.json"
+seqr_instance = ""
+seqr_project = ""
+seqr_lookup = ""
