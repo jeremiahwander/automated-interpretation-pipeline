@@ -355,11 +355,12 @@ class SneakyTable:
         # update the schema if sample entries were added
         sample_schema = self.modify_schema()
         json_schema = hl.dtype(sample_schema)
+        json_temp = self.json_to_file()
 
         # read JSON data from a hail table
         # field must be f0 if no header
         ht = hl.import_table(
-            self.json_to_file(), no_header=True, types={'f0': json_schema}
+            json_temp, no_header=True, types={'f0': json_schema}
         )
 
         # unwrap the data

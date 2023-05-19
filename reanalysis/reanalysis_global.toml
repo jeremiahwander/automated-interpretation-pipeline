@@ -52,26 +52,26 @@ spliceai = 0.5
 cancel_after_n_failures = 1
 default_timeout = 6000
 default_memory = 'highmem'
-billing_project = 'miah-trial'
+billing_project = 'kahlquis-trial'
 
 [references.broad]
-dragmap_prefix = "hail-az://kaileighref/reference/hg38/v0/dragen_reference"
-ref_fasta = "hail-az://kaileighref/reference/hg38/v0/dragen_reference/Homo_sapiens_assembly38_masked.fasta"
-genome_calling_interval_lists = "hail-az://kaileighref/reference/hg38/v0/wgs_calling_regions.hg38.interval_list"
+dragmap_prefix = "hail-az://kahlquisref/reference/hg38/v0/dragen_reference"
+ref_fasta = "hail-az://kahlquisref/reference/hg38/v0/dragen_reference/Homo_sapiens_assembly38_masked.fasta"
+genome_calling_interval_lists = "hail-az://kahlquisref/reference/hg38/v0/wgs_calling_regions.hg38.interval_list"
 
 [references]
 genome_build = "GRCh38"
-vep_mount = "hail-az://kaileighref/reference/vep/105.0/mount"
-seqr_combined_reference_data = "hail-az://kaileighref/reference/seqr/v0-1/combined_reference_data_grch38.ht"
-seqr_clinvar = "hail-az://kaileighref/reference/seqr/v0-1/clinvar.GRCh38.ht"
+vep_mount = "hail-az://kahlquisref/reference/vep/105.0/mount"
+seqr_combined_reference_data = "hail-az://kahlquisref/reference/seqr/v0-1/combined_reference_data_grch38.ht"
+seqr_clinvar = "hail-az://kahlquisref/reference/seqr/v0-1/clinvar.GRCh38.ht"
 
 [images]
-cpg_workflows = "kaileighacr.azurecr.io/cpg-common/images/cpg_workflows:latest"
-bcftools = "kaileighacr.azurecr.io/cpg-common/images/bcftools:1.16"
-gatk = "kaileighacr.azurecr.io/cpg-common/images/gatk:4.2.6.1"
-picard = "kaileighacr.azurecr.io/cpg-common/images/picard:2.27.4"
-samtools = "kaileighacr.azurecr.io/cpg-common/images/samtools:1.16.1"
-vep = "kaileighacr.azurecr.io/cpg-common/images/vep:105.0"
+cpg_workflows = "kahlquisaipcr.azurecr.io/cpg-common/images/cpg_workflows:latest"
+bcftools = "kahlquisaipcr.azurecr.io/cpg-common/images/bcftools:1.16"
+gatk = "kahlquisaipcr.azurecr.io/cpg-common/images/gatk:4.2.6.1"
+picard = "kahlquisaipcr.azurecr.io/cpg-common/images/picard:2.27.4"
+samtools = "kahlquisaipcr.azurecr.io/cpg-common/images/samtools:1.16.1"
+vep = "kahlquisaipcr.azurecr.io/cpg-common/images/vep:105.0"
 
 # per-cohort section
 #clinvar_filter = when running a clinvar re-summary, remove submissions by these sites. Default = no removal
