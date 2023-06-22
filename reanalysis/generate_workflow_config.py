@@ -21,7 +21,7 @@ python3 generate_workflow_config.py \
     --deploy_config ~/sources/cpg/cpg-deploy/azure/deploy-config.prod.json \
     --server_config ~/sources/cpg/cpg-deploy/aip/terraform.tfvars.json \
     --image_base azcpg001acr.azurecr.io/cpg-common/images \
-    --reference_base hail-az://azcpg001sa/reference \
+    --reference_base https://azcpg001sa.blob.core.windows.net/reference \
     --extra_configs reanalysis_global.toml reanalysis_cohort.toml \
     --print_only
 """
