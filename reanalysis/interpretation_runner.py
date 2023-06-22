@@ -256,7 +256,10 @@ def handle_result_presentation_job(
 
     # if a new script is added, it needs to be registered here to become usable
     scripts_and_inputs = {
-        'cpg': (html_builder.__file__, ['results', 'panelapp', 'pedigree', 'output'])
+        'cpg': (
+            get_git_root_relative_path_from_absolute(html_builder.__file__), 
+            ['results', 'panelapp', 'pedigree', 'output']
+        )
     }
 
     output_mode = get_config()['workflow'].get('presentation', 'cpg')
