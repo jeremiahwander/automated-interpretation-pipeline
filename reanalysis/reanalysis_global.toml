@@ -23,8 +23,8 @@ tmp = "https://sevgen002sa.blob.core.windows.net/test-tmp"
 
 [workflow]
 name = 'AIP'
-scatter_count = 50
-vcf_size_in_gb = 50  # if the input is a VCF, specify enough storage to fit it
+scatter_count = 400
+vcf_size_in_gb = 240  # if the input is a VCF, specify enough storage to fit it
 sequencing_type = 'genome'
 
 # optionally allow for running a different HTML script
@@ -285,6 +285,8 @@ gene_prior = 'gs://cpg-rdnow-test/reanalysis/pre_panelapp_mendeliome.json'
 
 [cohorts.rdp-kidney]
 cohort_panels = [275]
+
+[cohorts.rgp]
 
 [cohorts.schr-neuro]
 
