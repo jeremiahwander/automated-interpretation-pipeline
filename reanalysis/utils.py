@@ -10,6 +10,7 @@ from itertools import chain, combinations_with_replacement, islice
 from pathlib import Path
 from string import punctuation
 from typing import Any
+import peddy.peddy
 
 import json
 import logging
@@ -936,6 +937,9 @@ class CustomEncoder(json.JSONEncoder):
             return o.__dict__
         if isinstance(o, set):
             return list(o)
+        if isinstance(o, peddy.peddy.UNKNOWN.__class__):
+            # Peddy does a naughty thing and overrides the symbol for the UNKNOWN class with an instance of that class.
+            return 'unknown'
         return json.JSONEncoder.default(self, o)
 
 
