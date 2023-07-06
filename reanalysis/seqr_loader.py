@@ -37,16 +37,16 @@ def annotate_cohort(
         else:
             assert path.strip('/').endswith('.mt')
             t = hl.read_matrix_table(str(path))
-        logging.info(f'Read checkpoint {path}')
+        logger.info(f'Read checkpoint {path}')
         return t
 
     def _checkpoint(t, file_name):
         if checkpoint_prefix:
             path = os.path.join(checkpoint_prefix, file_name)
-            logging.info(f'Checkpointing to {path}')
+            logger.info(f'Checkpointing to {path}')
 
             t.write(str(path), overwrite=True)
-            logging.info(f'Wrote checkpoint {path}')
+            logger.info(f'Wrote checkpoint {path}')
             t = _read(str(path))
         return t
 
