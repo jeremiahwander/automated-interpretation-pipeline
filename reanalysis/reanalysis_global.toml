@@ -290,4 +290,6 @@ cohort_panels = [275]
 
 [cohorts.severalgenomes]
 
+[cohorts.rgp]
+
 [cohorts.udn-aus]
