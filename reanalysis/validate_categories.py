@@ -42,6 +42,7 @@ from reanalysis.utils import (
     ReportedVariant,
 )
 
+AMBIGUOUS_FLAG = 'Ambiguous Cat.1 MOI'
 MALE_FEMALE = {'male', 'female'}
 
 
@@ -69,9 +70,13 @@ def set_up_moi_filters(
 
     This dictionary format means we only have to set up each once
     A billion variants, 6 MOI = 6 test instances, each created once
-    :param panelapp_data:
-    :param pedigree:
-    :return:
+
+    Args:
+        panelapp_data (dict):
+        pedigree (Ped):
+
+    Returns:
+        a list
     """
 
     moi_dictionary = {}
@@ -101,10 +106,10 @@ def apply_moi_to_variants(
     find all variants/compound hets which fit the PanelApp MOI
 
     Args:
-        variant_dict ():
-        moi_lookup ():
-        panelapp_data ():
-        pedigree ():
+        variant_dict (dict): all possible variants, lists indexed by gene
+        moi_lookup (dict): the MOI model runner per MOI string
+        panelapp_data (dict): all genes and relevant details
+        pedigree (Ped): the pedigree for this cohort
     """
 
     results = []
@@ -135,25 +140,28 @@ def apply_moi_to_variants(
             # pass on whether this variant is support only
             # - no dominant MOI
             # - discarded if two support-only form a comp-het
-
-            # Flag! If this is a Category 1 (ClinVar) variant, and we are
-            # interpreting under a lenient MOI, add flag for analysts
-            lenient_moi_flag = bool(
-                variant.info.get('categoryboolean1', False)
-                and panel_gene_data.get('moi')
-                in {'Hemi_Mono_In_Female', 'Unknown', 'Mono_And_Biallelic'}
-            )
             variant_results = moi_lookup[panel_gene_data.get('moi')].run(
                 principal_var=variant,
                 comp_het=comp_het_dict,
                 partial_pen=variant.info.get('categoryboolean1', False),
             )
 
-            # update the flag for leniently applied Dominant
-            if lenient_moi_flag:
+            # Flag! If this is a Category 1 (ClinVar) variant, and we are
+            # interpreting under a lenient MOI, add flag for analysts
+            # control this in just one place
+            if panel_gene_data.get('moi') == 'Mono_And_Biallelic' and variant.info.get(
+                'categoryboolean1', False
+            ):
+
+                # consider each variant in turn
                 for each_result in variant_results:
-                    if any('Dominant' in moi for moi in each_result.reasons):
-                        each_result.flags += ['Ambiguous Cat.1 MOI']
+
+                    # never tag if this variant/sample is de novo
+                    if '4' in each_result.var_data.categories:
+                        continue
+
+                    if each_result.reasons == {'Autosomal Dominant'}:
+                        each_result.flags += [AMBIGUOUS_FLAG]
 
             results.extend(variant_results)
 
@@ -186,6 +194,7 @@ def clean_and_filter(
     Returns:
         cleaned data
     """
+    # pylint: disable=too-many-branches
 
     cohort_panels = set(get_cohort_config().get('cohort_panels', []))
 
@@ -203,6 +212,8 @@ def clean_and_filter(
     gene_details = {}
 
     for each_event in result_list:
+
+        each_event.independent = each_event.is_independent
 
         # grab some attributes from the event
         sample = each_event.sample
@@ -253,6 +264,10 @@ def clean_and_filter(
                 panel_meta[pid] for pid in cohort_intersection
             ]
 
+        # equivalence logic might need a small change here -
+        # If this variant and that variant have same sample/pos, equivalent
+        # If either was independent, set that flag to True
+        # Add a union of all Support Variants from both events
         if each_event not in results_holder[sample]['variants']:
             results_holder[sample]['variants'].append(each_event)
 
@@ -260,11 +275,26 @@ def clean_and_filter(
             prev_event = results_holder[sample]['variants'][
                 results_holder[sample]['variants'].index(each_event)
             ]
+
+            # if this is independent, set independent to True
+            if each_event.independent:
+                prev_event.independent = True
+
+            # take the union of all supporting variants for both
+            prev_event.support_vars.update(each_event.support_vars)
+
             prev_event.reasons.update(each_event.reasons)
-            prev_genes = set(prev_event.gene.split(','))
-            prev_genes.add(each_event.gene)
-            prev_event.gene = ','.join(prev_genes)
-            prev_event.flags = sorted(set(prev_event.flags + each_event.flags))
+            prev_event.gene = ','.join(prev_event.gene.split(',') + [each_event.gene])
+
+            # combine flags across variants, and remove Ambiguous marking
+            # if it's no longer appropriate
+            both_flags = sorted(set(prev_event.flags + each_event.flags))
+            if (
+                prev_event.reasons != {'Autosomal Dominant'}
+                and AMBIGUOUS_FLAG in both_flags
+            ):
+                both_flags.remove(AMBIGUOUS_FLAG)
+            prev_event.flags = both_flags
 
     # organise the variants by chromosomal location
     for sample in results_holder:
@@ -370,9 +400,12 @@ def prepare_results_shell(
         if sam.affected == PEDDY_AFFECTED and sam.sample_id in vcf_samples
     ]:
         family = pedigree.families[pedigree[sample].family_id]
+
         family_members = {
             member.sample_id: {
-                'sex': member.sex,
+                'sex': str(member.sex)
+                if str(member.sex) in {'male', 'female'}
+                else 'unknown',
                 'affected': member.affected == PEDDY_AFFECTED,
                 'ext_id': external_map.get(member.sample_id, member.sample_id),
             }
@@ -421,13 +454,15 @@ def main(
     We expect approximately linear scaling with participants in the joint call
 
     Args:
-        labelled_vcf ():
-        out_json ():
-        panelapp ():
-        pedigree ():
-        input_path (): VCF used as input
-        participant_panels (): json of panels per participant
+        labelled_vcf (str): VCF output from Hail Labelling stage
+        out_json (str): location to write output file
+        panelapp (str): location of PanelApp data JSON
+        pedigree (str): location of PED file
+        input_path (str): VCF/MT used as input
+        participant_panels (str): json of panels per participant
     """
+
+    out_json = to_path(out_json)
 
     # parse the pedigree from the file
     pedigree_digest = Ped(pedigree)
@@ -469,6 +504,7 @@ def main(
             )
         )
 
+    # create a shell to store results in
     results_shell = prepare_results_shell(
         vcf_samples=vcf_opened.samples,
         pedigree=pedigree_digest,
@@ -489,6 +525,7 @@ def main(
         analysis_results, singletons=bool('singleton' in pedigree)
     )
 
+    # create the full final output file
     final_results = {
         'results': analysis_results,
         'metadata': {
@@ -502,11 +539,12 @@ def main(
             ),
             'panels': panelapp_data['metadata'],
             'container': get_config()['workflow']['driver_image'],
+            'categories': get_config()['categories'],
         },
     }
 
     # store results using the custom-encoder to transform sets & DataClasses
-    with to_path(out_json).open('w') as fh:
+    with out_json.open('w') as fh:
         json.dump(final_results, fh, cls=CustomEncoder, indent=4)
 
 

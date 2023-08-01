@@ -37,11 +37,14 @@ presentation = 'cpg'
 #clinvar_decisions = "HailTable path to private ClinVar"
 #clinvar_pm5 = "HailTable path to ClinVar PM5"
 
+[dataset_specific]
+placeholder = 'placeholder'
+
 [panels]
 default_panel = 137
 panelapp = 'https://panelapp.agha.umccr.org/api/v1/panels'
 panel_month_delta = 12
-require_pheno_match = ['FLG', 'GJB2']
+require_pheno_match = ['FLG', 'GJB2', 'F2', 'F5']
 
 [clinvar]
 filter_benign = ['illumina laboratory services; illumina']
@@ -73,6 +76,15 @@ polyphen = 0.99
 revel = 0.77
 sift = 0.0
 spliceai = 0.5
+
+[categories]
+1 = 'ClinVar Pathogenic'
+2 = 'New Gene-Disease Association'
+3 = 'High Impact Variant'
+4 = 'de Novo'
+5 = 'High SpliceAI Score'
+pm5 = 'ACMG PM5 - missense in same residue as known pathogenic'
+support = 'High in Silico Scores'
 
 [hail]
 cancel_after_n_failures = 1
@@ -210,6 +222,9 @@ stripy = "azcpg001acr.azurecr.io/cpg-common/images/stripy:2.2"
 clinvar_filter = ['victorian clinical genetics services,murdoch childrens research institute']
 #cohort_percentage = 80
 gene_prior = 'gs://cpg-acute-care-test/reanalysis/pre_panelapp_mendeliome.json'
+
+[cohorts.ag-cardiac]
+cohort_panels = [4059]
 
 [cohorts.ag-hidden]
 clinvar_filter = ['victorian clinical genetics services,murdoch childrens research institute']

@@ -6,12 +6,13 @@ cyvcf2>=0.30.18
 dill>=0.3.5.1
 hail>=0.2.105
 Jinja2==3.0.3
+metamist>=6.0.2
 networkx>=2.8.3
 obonet>=0.3.1
 pandas>=1.4.3
 peddy>=0.4.8
-requests>=2.25.1
 sample-metadata-ms>=0.7.1
+requests>=2.25.1,<2.30.0 # vulnerability in 2.30.0
 seqr-loader>=1.2.5
 analysis-runner-ms>=0.9.8
 tabulate>=0.8.9
