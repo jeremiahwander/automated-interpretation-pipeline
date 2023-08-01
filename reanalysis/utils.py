@@ -558,16 +558,18 @@ class AbstractVariant:
         """
 
         # step down all category flags to boolean flags
-        for category in self.sample_categories:
-            sample_list = self.info.pop(category)
-            new_cat = category.replace('categorysample', 'categoryboolean')
-            self.info[new_cat] = bool(sample in sample_list)
-            self.boolean_categories.append(new_cat)
         categories = [
-            bool_cat.replace('categoryboolean', '')
-            for bool_cat in self.boolean_categories
-            if self.info[bool_cat]
+            category.replace('categorysample', '')
+            for category in self.sample_categories
+            if sample in self.info[category]
         ]
+        categories.extend(
+            [
+                bool_cat.replace('categoryboolean', '')
+                for bool_cat in self.boolean_categories
+                if self.info[bool_cat]
+            ]
+        )
 
         if self.has_support:
             categories.append('support')
@@ -653,6 +655,27 @@ class AbstractVariant:
         return []
 
 
+class MinimalVariant:
+    """
+    subset of the AbstractVariant data type
+    """
+
+    def __init__(self, variant: AbstractVariant, sample: str):
+        self.coords: Coordinates = variant.coords
+        self.categories: list[str] = variant.category_values(sample)
+        # no need to carry these though to the report
+        avoid_flags = (
+            variant.sample_categories
+            + variant.boolean_categories
+            + variant.sample_support
+        )
+        self.info: dict[str, Any] = {
+            key: value for key, value in variant.info.items() if key not in avoid_flags
+        }
+        self.transcript_consequences = variant.transcript_consequences
+        self.phased = variant.phased
+
+
 # CompHetDict structure: {sample: {variant_string: [variant, ...]}}
 # sample: string, e,g, CGP12345
 CompHetDict = dict[str, dict[str, list[AbstractVariant]]]
@@ -663,36 +686,42 @@ GeneDict = dict[str, list[AbstractVariant]]
 class ReportedVariant:
     """
     minimal model representing variant categorisation event
-    the initial variant
-    the MOI passed
-    the support (if any)
+    the initial variant (minimised)
+    the MOI applicable
+    the support ing variant(s), if any
     allows for the presence of flags e.g. Borderline AB ratio
     """
 
     sample: str
     family: str
     gene: str
-    var_data: AbstractVariant
+    var_data: MinimalVariant
     reasons: set[str]
     genotypes: dict[str, str]
-    supported: bool = field(default=False)
-    support_vars: list[str] = field(default_factory=list)
+    support_vars: set[str] = field(default_factory=set)
     flags: list[str] = field(default_factory=list)
     panels: dict[str] = field(default_factory=dict)
     phenotypes: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
     first_seen: str = get_granular_date()
+    independent: bool = False
+
+    @property
+    def is_independent(self):
+        """
+        check if this variant acts independently
+        """
+        return len(self.support_vars) == 0
 
     def __eq__(self, other):
         """
         makes reported variants comparable
         """
-        self_supvar = set(self.support_vars)
-        other_supvar = set(other.support_vars)
+        # self_supvar = set(self.support_vars)
+        # other_supvar = set(other.support_vars)
         return (
             self.sample == other.sample
             and self.var_data.coords == other.var_data.coords
-            and self.supported == other.supported
-            and self_supvar == other_supvar
         )
 
     def __lt__(self, other):
@@ -705,7 +734,7 @@ def canonical_contigs_from_vcf(reader) -> set[str]:
     return a set of all 'canonical' contigs
 
     Args:
-        reader (): cyvcf2.VCFReader
+        reader (cyvcf2.VCFReader):
     """
 
     # contig matching regex - remove all HLA/decoy/unknown
@@ -836,7 +865,7 @@ def get_simple_moi(input_moi: str | None, chrom: str) -> str | None:
         input_moi ():
         chrom ():
     """
-
+    # pylint: disable=too-many-return-statements
     if input_moi in IRRELEVANT_MOI:
         raise ValueError("unknown and other shouldn't reach this method")
 
@@ -853,6 +882,8 @@ def get_simple_moi(input_moi: str | None, chrom: str) -> str | None:
         case ['both', *_additional]:
             return 'Mono_And_Biallelic'
         case ['monoallelic', *_additional]:
+            if chrom in X_CHROMOSOME:
+                return 'Hemi_Mono_In_Female'
             return 'Monoallelic'
         case [
             'xlinked',
@@ -932,7 +963,7 @@ class CustomEncoder(json.JSONEncoder):
             o (): python object being JSON encoded
         """
 
-        if is_dataclass(o):
+        if is_dataclass(o) or isinstance(o, MinimalVariant):
             return o.__dict__
         if isinstance(o, set):
             return list(o)
@@ -1019,6 +1050,7 @@ def filter_results(results: dict, singletons: bool) -> dict:
 
     if historic_folder is None:
         logging.info('No historic data folder, no filtering')
+        # results, _cumulative = date_annotate_results(results)
         return results
 
     logging.info('Attempting to filter current results against historic')
@@ -1078,9 +1110,7 @@ def find_latest_file(
     """
 
     if results_folder is None:
-        results_folder = (
-            get_config().get('dataset_specific', {}).get('historic_results')
-        )
+        results_folder = get_config()['dataset_specific'].get('historic_results')
         if results_folder is None:
             logging.info('`historic_results` not present in config')
             return None
@@ -1107,7 +1137,7 @@ def date_annotate_results(
     much simpler logic overall
 
     Args:
-        current ():
+        current (dict): results generated during this run
         historic (): optionally, historic data
 
     Returns: date-annotated results and cumulative data
@@ -1115,13 +1145,26 @@ def date_annotate_results(
 
     # if there's no historic data, make some
     if historic is None:
-        historic = {}
+        historic = {
+            'metadata': {'categories': get_config()['categories']},
+            'results': {},
+        }
+
+    # update to latest format
+    elif 'results' not in historic.keys():
+        historic = {
+            'metadata': {'categories': get_config()['categories']},
+            'results': historic,
+        }
+
+    # update to latest category descriptions
+    historic['metadata'].setdefault('categories', {}).update(get_config()['categories'])
 
     for sample, content in current.items():
 
         # totally absent? start populating for this sample
-        if sample not in historic:
-            historic[sample] = {}
+        if sample not in historic['results']:
+            historic['results'][sample] = {}
 
         # check each variant found in this round
         for var in content['variants']:
@@ -1129,10 +1172,14 @@ def date_annotate_results(
             current_cats = set(var.var_data.categories)
 
             # this variant was previously seen
-            if var_id in historic[sample]:
+            if var_id in historic['results'][sample]:
 
-                hist = historic[sample][var_id]
+                hist = historic['results'][sample][var_id]
+
                 historic_cats = set(hist['categories'].keys())
+
+                # bool if this was ever independent
+                hist['independent'] = var.independent or hist.get('independent', False)
 
                 # if we have any new categories don't alter the date
                 if new_cats := current_cats - historic_cats:
@@ -1155,9 +1202,19 @@ def date_annotate_results(
 
             # totally new variant
             else:
-                historic[sample][var_id] = {
+                historic['results'][sample][var_id] = {
                     'categories': {cat: get_granular_date() for cat in current_cats},
                     'support_vars': var.support_vars,
+                    'independent': var.independent,
                 }
 
     return current, historic
+
+
+def get_priority_label():
+    """
+    dummy method for now
+    Returns:
+        empty list, may return a collection of tags in future
+    """
+    return []

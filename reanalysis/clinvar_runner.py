@@ -106,6 +106,7 @@ def generate_annotated_data(
     )
 
     # add Clinvar job as an annotation dependency
+    # update dependency job if necessary
     if vep_jobs:
         if dependency:
             for job in vep_jobs:
