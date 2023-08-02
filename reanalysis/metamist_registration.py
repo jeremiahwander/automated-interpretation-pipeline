@@ -14,9 +14,9 @@ from peddy import Ped
 from cpg_utils import to_path
 from cpg_utils.config import get_config
 
-from metamist.apis import AnalysisApi
-from metamist.model.analysis import Analysis
-from metamist.model.analysis_status import AnalysisStatus
+# from metamist.apis import AnalysisApi
+# from metamist.model.analysis import Analysis
+# from metamist.model.analysis_status import AnalysisStatus
 
 
 def register_html(file_path: str, samples: list[str]):
