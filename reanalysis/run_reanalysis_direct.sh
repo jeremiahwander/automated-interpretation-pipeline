@@ -8,12 +8,12 @@ set -ex
 DATE=${1:-$(date +%F)}
 #DATE="2023-06-21"
 # make a randomized config name
-CONFIG_PATH=https://sevgen002sa.blob.core.windows.net/test-tmp/config-$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8).toml
+CONFIG_PATH=hail-az://raregen001sa/test-tmp/config-$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8).toml
 
   # --deploy_config ~/sources/cpg/cpg-deploy/azure/deploy-config.prod.json \
   # --server_config ~/sources/cpg/cpg-deploy/aip/terraform.tfvars.json \
 python3 reanalysis/generate_workflow_config.py \
-  --dataset severalgenomes \
+  --dataset rgp \
   --access_level test \
   --driver_image azcpg001acr.azurecr.io/cpg-common/images/cpg_aip:latest \
   --output_prefix "reanalysis/${DATE}" \
@@ -24,6 +24,9 @@ python3 reanalysis/generate_workflow_config.py \
   -o ${CONFIG_PATH}
 
 export CPG_CONFIG_PATH=${CONFIG_PATH}
+#echo $CPG_CONFIG_PATH
 python3 reanalysis/interpretation_runner.py \
-  -i https://sevgen002sa.blob.core.windows.net/test/reanalysis/2022-11-15/prior_to_annotation.vcf.bgz \
-  --pedigree https://sevgen002sa.blob.core.windows.net/test/reanalysis/pedigree.fam
+ -i https://raregen001sa.blob.core.windows.net/test/reanalysis/2023-07-20/annotated_variants.mt \
+ --pedigree https://raregen001sa.blob.core.windows.net/test/inputs/pedigree.fam \
+ --participant_panels https://raregen001sa.blob.core.windows.net/test/inputs/rgp_panels.json \
+ --skip_annotation
