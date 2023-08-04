@@ -6,7 +6,7 @@ set -ex
 
 # set the date, or provide a default
 # DATE=${1:-$(date +%F)}
-DATE="2023-05-22"
+DATE="2023-05-26"
 # make a randomized config name
 
 CONFIG_PATH=https://kahlquisrefsa.blob.core.windows.net/test/config-$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8).toml

@@ -122,7 +122,7 @@ def scatter_intervals(
         attributes=(job_attrs or {}) | {'tool': 'picard IntervalListTools'},
     )
     j.image(image_path('picard'))
-    STANDARD.set_resources(j, storage_gb=16, mem_gb=2)
+    STANDARD.set_resources(j, storage_gb=16, mem_gb=4)
 
     break_bands_at_multiples_of = {
         'genome': 100000,
