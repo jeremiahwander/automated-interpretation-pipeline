@@ -6,7 +6,7 @@ set -ex
 
 # set the date, or provide a default
 #DATE=${1:-$(date +%F)}
-DATE="2023-05-22"
+DATE="2023-05-05"
 # make a randomized config name
 CONFIG_PATH=https://kahlquisrefsa.blob.core.windows.net/test/config-$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8).toml
 #CONFIG_PATH=temp.toml
@@ -46,8 +46,19 @@ python3 reanalysis/generate_workflow_config.py \
 #   -i hail-az://kahlquisref/test/inputs/grch38_WAS_male01.vcf.gz \
 #   --pedigree hail-az://kahlquisref/test/inputs/grch38_WAS_male.ped
 
+# export CPG_CONFIG_PATH=${CONFIG_PATH}
+# python3 reanalysis/interpretation_runner.py \
+#   -i https://kahlquisref.blob.core.windows.net/reference/RGP_data/RGP_microsoft_output_111422_train_reheader.vcf.bgz\
+#   --pedigree https://kahlquisref.blob.core.windows.net/reference/RGP_data/train_pedigree.fam
+
+# export CPG_CONFIG_PATH=${CONFIG_PATH}
+# python3 reanalysis/interpretation_runner.py \
+#   -i https://kahlquisref.blob.core.windows.net/test/inputs/output_vcf_broken_xaa.vcf.gz\
+#   --pedigree https://kahlquisref.blob.core.windows.net/reference/RGP_data/train_pedigree.fam
+
 export CPG_CONFIG_PATH=${CONFIG_PATH}
 #echo $CPG_CONFIG_PATH
 python3 reanalysis/interpretation_runner.py \
-  -i https://kahlquisref.blob.core.windows.net/reference/RGP_data/RGP_microsoft_output_111422_train.vcf.bgz \
+  -i https://kahlquisref.blob.core.windows.net/reference/RGP_data/RGP_clean_train_ed.vcf.bgz\
   --pedigree https://kahlquisref.blob.core.windows.net/reference/RGP_data/train_pedigree.fam
+

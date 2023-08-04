@@ -329,7 +329,7 @@ def common_format_seqr(seqr: str, affected: list[str]) -> CommonDict:
                 ):
                     sample_dict[entry[value]].append(variant_obj)
 
-    logging.info(f'Variants from Seqr digest: {sample_dict}')
+    logger.error(f'Variants from Seqr digest: {sample_dict}')
 
     return sample_dict
 
@@ -373,12 +373,12 @@ def find_seqr_flags(
                 flag_matches[conf.name][match]['details'].append(f'{sample}::{repr(v)}')
                 flag_matches[conf.name][match]['count'] += 1
 
-    # print a summary into logging
-    logging.info(f'Total Seqr Variants: {total_seqr_variants}')
+    # print a summary into logger
+    logger.info(f'Total Seqr Variants: {total_seqr_variants}')
     for confidence, match_types in flag_matches.items():
-        logging.info(f'{confidence}')
+        logger.info(f'{confidence}')
         for match_type, match_dict in match_types.items():
-            logging.info(f'\t{match_type} - {match_dict["count"]}')
+            logger.info(f'\t{match_type} - {match_dict["count"]}')
 
     return flag_matches
 
@@ -401,7 +401,7 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
 
     missing_samples = seqr_samples - common_samples
     if len(missing_samples) > 0:
-        logging.error(
+        logger.error(
             f'Samples completely missing from AIP results: '
             f'{", ".join(missing_samples)}'
         )
@@ -409,7 +409,7 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
         # for each of those missing samples, add all variants
         for miss_sample in missing_samples:
             discrepancies[miss_sample] = seqr_results[miss_sample]
-            logging.error(
+            logger.error(
                 f'Sample {miss_sample}: '
                 f'{len(seqr_results[miss_sample])} missing variant(s)'
             )
@@ -436,8 +436,8 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
             ]
         )
 
-        logging.info(f'Sample {sample} - {matched} matched variant(s)')
-        logging.info(
+        logger.info(f'Sample {sample} - {matched} matched variant(s)')
+        logger.info(
             f'Sample {sample} - {len(sample_discrepancies)} missing variant(s)'
         )
 
@@ -510,7 +510,7 @@ def find_variant_in_mt(
     :return:
     """
     var_locus, var_alleles = var.get_hail_pos()
-    logging.info(f'Querying for {var_locus}: {var_alleles}')
+    logger.info(f'Querying for {var_locus}: {var_alleles}')
     return matrix.filter_rows(
         (matrix.locus == var_locus) & (matrix.alleles == var_alleles)
     )
@@ -804,7 +804,7 @@ def check_mt(
     for sample, variant in [
         (sam, var) for (sam, var_list) in variants.items() for var in var_list
     ]:
-        logging.info(f'running check for {sample}, variant {variant}')
+        logger.info(f'running check for {sample}, variant {variant}')
 
         # filter the MT to the required locus
         var_mt = find_variant_in_mt(matrix=matrix, var=variant)
@@ -854,7 +854,7 @@ def check_mt(
         untiered[sample].append((variant, reasons))
 
         if not reasons:
-            logging.error(f'No Fail reasons for Sample {sample}, ' f'Variant {variant}')
+            logger.error(f'No Fail reasons for Sample {sample}, ' f'Variant {variant}')
 
     return not_in_mt, untiered
 
@@ -873,14 +873,14 @@ def prep_rgp_dataframe(truth: str):
     return raw_df
 
 
-def main(results_folder: str, pedigree: str, truth: str, vcf: str, mt: str, output: str):
+def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, output: str):
     """
     runs a full match-seeking analysis of this AIP run against the
     expected variants (based on seqr training flags)
 
     :param results_folder:
     :param pedigree:
-    :param truth:
+    :param seqr:
     :param vcf:
     :param mt:
     :param output:
@@ -888,100 +888,93 @@ def main(results_folder: str, pedigree: str, truth: str, vcf: str, mt: str, outp
     """
 
     # normalise data formats from AIP result file
+    logger.error("normalise data formats from AIP result file")
     aip_results = common_format_aip(
         results_dict=read_json_from_path(
             os.path.join(results_folder, 'summary_results.json')
         )
     )
 
-    with AnyPath(f'{output}_aip_common.json').open('w') as handle:
-        json.dump(aip_results, handle, default=str, indent=4)
-
     # Search for all affected sample IDs in the Peddy Pedigree
+    logger.error("Search for all affected sample IDs in the Peddy Pedigree")
     affected = find_affected_samples(Ped(pedigree))
 
-    # `truth` can either be a seqr output ('tsv'), or an excel spreadsheet ('xlsx')
-    suffix = AnyPath(truth).suffix
+    # parse the Seqr results table, specifically targeting variants in probands
+    logger.error("parse the Seqr results table, specifically targeting variants in probands")
+    seqr_results = common_format_seqr(seqr=seqr, affected=affected)
 
-    if suffix == '.tsv':
-        # parse the Seqr results table, specifically targeting variants in probands
-        truth_results = common_format_seqr(seqr=truth, affected=affected)
-    elif suffix == '.xlsx':
-        truth_results = common_format_dataframe(
-            results_df=prep_rgp_dataframe(truth), affected=affected
-        )
-    else:
-        raise ValueError(f'Unknown suffix for truth_path: {suffix}')
-
-    with AnyPath(f'{output}_truth_common.json').open('w') as handle:
-        json.dump(truth_results, handle, default=str, indent=4)
-    
     # strict comparison
-    flag_summary = find_seqr_flags(aip_results=aip_results, seqr_results=truth_results)
+    logger.error("strict comparison")
+    flag_summary = find_seqr_flags(aip_results=aip_results, seqr_results=seqr_results)
     with AnyPath(f'{output}_match_summary.json').open('w') as handle:
         json.dump(flag_summary, handle, default=str, indent=4)
 
     # compare the results of the two datasets
-    discrepancies = find_missing(seqr_results=truth_results, aip_results=aip_results)
+    logger.error("compare the results of the two datasets")
+    discrepancies = find_missing(seqr_results=seqr_results, aip_results=aip_results)
     if not discrepancies:
-        logging.info('All variants resolved!')
+        logger.info('All variants resolved!')
         sys.exit(0)
 
-    # # load and digest panel data
-    # panel_dict = read_json_from_path(os.path.join(results_folder, 'panelapp_data.json'))['genes']
-    # green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
+    # load and digest panel data
+    logger.error("load and digest panel data")
+    panel_dict = read_json_from_path(os.path.join(results_folder, 'panelapp_data.json'))
+    green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
 
     # if we had discrepancies, bin into classified and misc.
+    logger.error("if we had discrepancies, bin into classified and misc.")
     in_vcf, not_in_vcf = check_in_vcf(vcf_path=vcf, variants=discrepancies)
 
-    # some logging content here
+    # some logger content here
+    logger.error("first logger content")
     for sample in not_in_vcf:
-        logging.info(f'Sample: {sample}')
+        logger.info(f'Sample: {sample}')
         for variant in not_in_vcf[sample]:
-            logging.info(f'\tVariant {variant} missing from VCF')
+            logger.info(f'\tVariant {variant} missing from VCF')
 
-    # some logging content here
+    # some logger content here
+    logger.error("second logger content")
     for sample in in_vcf:
-        logging.info(f'Sample: {sample}')
+        logger.info(f'Sample: {sample}')
         for variant in in_vcf[sample]:
-            logging.info(f'\tVariant {variant} requires MOI checking')
+            logger.info(f'\tVariant {variant} requires MOI checking')
 
-    # # if there were any variants missing from the VCF, attempt to find them in the MT
-    # if len(not_in_vcf) == 0:
-    #     sys.exit(0)
+    # if there were any variants missing from the VCF, attempt to find them in the MT
+    logger.error("if there were any variants missing from the VCF, attempt to find them in the MT")
+    if len(not_in_vcf) == 0:
+        sys.exit(0)
 
-    # # if we need to check the MT, start Hail Query
-    # init_batch(driver_cores=8, driver_memory='highmem')
+    # if we need to check the MT, start Hail Query
+    logger.error("if we need to check the MT, start Hail Query")
+    init_batch(driver_cores=8, driver_memory='highmem')
 
-    # # read in the MT
-    # matrix = hl.read_matrix_table(mt)
+    # read in the MT
+    logger.error("read in the MT")
+    matrix = hl.read_matrix_table(mt)
 
-    # not_present, untiered = check_mt(
-    #     matrix=matrix,
-    #     variants=not_in_vcf,
-    #     green_genes=green_genes,
-    #     new_genes=new_genes,
-    # )
-    # if untiered:
-    #     with AnyPath(f'{output}_untiered.json').open('w') as handle:
-    #         json.dump(untiered, handle, default=str, indent=4)
+    not_present, untiered = check_mt(
+        matrix=matrix,
+        variants=not_in_vcf,
+        green_genes=green_genes,
+        new_genes=new_genes,
+    )
+    if untiered:
+        with AnyPath(f'{output}_untiered.json').open('w') as handle:
+            json.dump(untiered, handle, default=str, indent=4)
 
-    # if not_present:
-    #     with AnyPath(f'{output}_missing.json').open('w') as handle:
-    #         json.dump(not_present, handle, default=str, indent=4)
+    if not_present:
+        with AnyPath(f'{output}_missing.json').open('w') as handle:
+            json.dump(not_present, handle, default=str, indent=4)
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s %(module)s:%(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        stream=sys.stderr,
-    )
+    # set up a logger in this Hail Query runtime
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logger.INFO)
     parser = ArgumentParser()
     parser.add_argument('--results_folder')
     parser.add_argument('--pedigree')
-    parser.add_argument('--truth')
+    parser.add_argument('--seqr')
     parser.add_argument('--vcf')
     parser.add_argument('--mt')
     parser.add_argument('--output')
@@ -989,7 +982,7 @@ if __name__ == '__main__':
     main(
         results_folder=args.results_folder,
         pedigree=args.pedigree,
-        truth=args.truth,
+        seqr=args.seqr,
         vcf=args.vcf,
         mt=args.mt,
         output=args.output,
