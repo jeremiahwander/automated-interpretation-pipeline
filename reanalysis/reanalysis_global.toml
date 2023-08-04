@@ -18,8 +18,6 @@ name = 'AIP'
 scatter_count = 300
 vcf_size_in_gb = 150  # if the input is a VCF, specify enough storage to fit it
 sequencing_type = 'genome'
-
-# optionally allow for running a different HTML script
 presentation = 'cpg'
 
 # where to register outputs, if at all
@@ -135,6 +133,7 @@ gene_prior = "gs://cpg-broad-rgp-test-analysis/reanalysis/jan_2020_panels.json"
 gene_prior = 'gs://cpg-epileptic-enceph-test/reanalysis/pre_panelapp_mendeliome.json'
 
 [cohorts.heartkids]
+clinvar_filter = ['victorian clinical genetics services,murdoch childrens research institute']
 gene_prior = 'gs://cpg-heartkids-test/reanalysis/pre_panelapp_mendeliome.json'
 
 [cohorts.hereditary-neuro]
@@ -165,6 +164,7 @@ gene_prior = 'gs://cpg-mito-disease-test/reanalysis/pre_panelapp_mendeliome.json
 [cohorts.ravenscroft-rdstudy]
 
 [cohorts.rdnow]
+clinvar_filter = ['victorian clinical genetics services,murdoch childrens research institute']
 gene_prior = 'gs://cpg-rdnow-test/reanalysis/pre_panelapp_mendeliome.json'
 
 [cohorts.schr-neuro]
@@ -174,3 +174,5 @@ gene_prior = 'gs://cpg-rdnow-test/reanalysis/pre_panelapp_mendeliome.json'
 [cohorts.rgp]
 
 [cohorts.udn-aus]
+
+[cohorts.rgptest]
