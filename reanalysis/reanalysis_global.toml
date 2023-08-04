@@ -15,11 +15,9 @@ tmp = "https://kahlquisrefsa.blob.core.windows.net/test-tmp"
 
 [workflow]
 name = 'AIP'
-scatter_count = 200
+scatter_count = 300
 vcf_size_in_gb = 150  # if the input is a VCF, specify enough storage to fit it
 sequencing_type = 'genome'
-presentation = 'cpg'
-register = 'metamist'
 
 # optionally allow for running a different HTML script
 presentation = 'cpg'
