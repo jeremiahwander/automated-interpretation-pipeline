@@ -70,14 +70,16 @@ def main(results_folder: str, truth: str, mt: str, fam_name: str):
     ped_in_batch = batch.read_input(os.path.join(results_folder, fam_name))
 
     script_path = get_git_root_relative_path_from_absolute(comparison.__file__)
+    print(os.getcwd())
+    output = output_path("comparison_result")
     results_command = (
-        f'python3 {script_path} '
+        f'python3 comparison/comp_copy.py '
         f'--results_folder {results_folder} '
         f'--pedigree {ped_in_batch} '
         f'--truth "{truth}" '
         f'--vcf {vcf_in_batch["vcf.bgz"]} '
         f'--mt {mt} '
-        f'--output {output_path("comparison_result")} '
+        f'--output {output} '
     )
     logging.info(f'Results command: {results_command}')
     comp_job.command(results_command)
