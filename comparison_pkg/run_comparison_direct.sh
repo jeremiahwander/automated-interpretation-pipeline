@@ -23,7 +23,7 @@ python3 /home/kahlquis/automated-interpretation-pipeline/reanalysis/generate_wor
   -o "${CONFIG_PATH}"
   
 export CPG_CONFIG_PATH=${CONFIG_PATH}
-python3 comparison/comparison_wrapper.py \
+python3 comparison_pkg/comparison_wrapper.py \
   --results https://kahlquisrefsa.blob.core.windows.net/test/reanalysis_train/2023-07-20/ \
   --truth "https://kahlquisrefsa.blob.core.windows.net/test/test-seqr-vars/saved_all_variants_rare_genomes_project_genomes_combined.tsv" \
   --mt https://kahlquisrefsa.blob.core.windows.net/test/annotated_variants.mt \

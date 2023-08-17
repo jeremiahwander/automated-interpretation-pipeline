@@ -33,6 +33,9 @@ from cpg_utils.config import get_config
 # Namespacing gets weird here because both the package and the module share the same name. When running via shell script
 # this will import the module, thus it follows a different pattern from reanalysis/interpretation_runner.py.
 import comparison
+import importlib
+importlib.reload(comparison)
+
 
 def main(results_folder: str, truth: str, mt: str, fam_name: str):
     """
@@ -71,16 +74,18 @@ def main(results_folder: str, truth: str, mt: str, fam_name: str):
 
     script_path = get_git_root_relative_path_from_absolute(comparison.__file__)
     print(os.getcwd())
+    print(sys.path)
     output = output_path("comparison_result")
     results_command = (
-        f'python3 comparison/comp_copy.py '
+        f'python3 comparison/comparison.py '
         f'--results_folder {results_folder} '
         f'--pedigree {ped_in_batch} '
-        f'--truth "{truth}" '
+        f'--seqr "{truth}" '
         f'--vcf {vcf_in_batch["vcf.bgz"]} '
         f'--mt {mt} '
         f'--output {output} '
     )
+    print(results_command)
     logging.info(f'Results command: {results_command}')
     comp_job.command(results_command)
 
