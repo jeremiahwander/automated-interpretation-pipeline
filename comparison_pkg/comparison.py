@@ -20,6 +20,7 @@ from typing import Any
 import hail as hl
 import pandas as pd
 from cloudpathlib import AnyPath
+from cpg_utils import to_path
 from cpg_utils.config import get_config
 from cpg_utils.hail_batch import init_batch
 from cyvcf2 import VCFReader
@@ -44,17 +45,21 @@ SAMPLE_ALT_TEMPLATE = 'num_alt_alleles_{}'
 
 VALID_VALUES = [
     'Known gene for phenotype',
-    'Tier 1 - Novel gene and phenotype',
-	'Tier 1 - Novel gene for known phenotype',
-	'Tier 1 - Phenotype expansion',
-	'Tier 1 - Novel mode of inheritance',
-	'Tier 1 - Known gene, new phenotype',
-	'Tier 2 - Novel gene and phenotype',
-	'Tier 2 - Novel gene for known phenotype',
-    'Tier 2 - Phenotype expansion',
-	'Tier 2 - Phenotype not delineated',
-	'Tier 2 - Known gene, new phenotype'
 ]
+
+# VALID_VALUES = [
+#     'Known gene for phenotype',
+#     'Tier 1 - Novel gene and phenotype',
+# 	'Tier 1 - Novel gene for known phenotype',
+# 	'Tier 1 - Phenotype expansion',
+# 	'Tier 1 - Novel mode of inheritance',
+# 	'Tier 1 - Known gene, new phenotype',
+# 	'Tier 2 - Novel gene and phenotype',
+# 	'Tier 2 - Novel gene for known phenotype',
+#     'Tier 2 - Phenotype expansion',
+# 	'Tier 2 - Phenotype not delineated',
+# 	'Tier 2 - Known gene, new phenotype'
+# ]
 
 class Confidence(Enum):
     """
@@ -69,16 +74,16 @@ class Confidence(Enum):
     EXPECTED = 'AIP training: Expected'
     #POSSIBLE = 'AIP training: Possible'
     #UNLIKELY = 'AIP training: Unlikely'
-    T1_NGAP = 'Tier 1 - Novel gene and phenotype'
-    T1_NGFKP = 'Tier 1 - Novel gene for known phenotype'
-    T1_PE = 'Tier 1 - Phenotype expansion'
-    T1_NMOI = 'Tier 1 - Novel mode of inheritance'
-    T1_KGNP = 'Tier 1 - Known gene, new phenotype'
-    T2_NGAP = 'Tier 2 - Novel gene and phenotype'
-    T2_NGFKP = 'Tier 2 - Novel gene for known phenotype'
-    T2_PE = 'Tier 2 - Phenotype expansion'
-    T2_PND = 'Tier 2 - Phenotype not delineated'
-    T2_KGNP = 'Tier 2 - Known gene, new phenotype'
+    # T1_NGAP = 'Tier 1 - Novel gene and phenotype'
+    # T1_NGFKP = 'Tier 1 - Novel gene for known phenotype'
+    # T1_PE = 'Tier 1 - Phenotype expansion'
+    # T1_NMOI = 'Tier 1 - Novel mode of inheritance'
+    # T1_KGNP = 'Tier 1 - Known gene, new phenotype'
+    # T2_NGAP = 'Tier 2 - Novel gene and phenotype'
+    # T2_NGFKP = 'Tier 2 - Novel gene for known phenotype'
+    # T2_PE = 'Tier 2 - Phenotype expansion'
+    # T2_PND = 'Tier 2 - Phenotype not delineated'
+    # T2_KGNP = 'Tier 2 - Known gene, new phenotype'
 
 
     def __lt__(self, other):
@@ -350,7 +355,8 @@ def find_seqr_flags(
             'matched': {'details': [], 'count': 0},
             'unmatched': {'details': [], 'count': 0},
         }
-        for key in ['EXPECTED', 'KGFP', 'T1_NGAP', 'T1_NGFKP', 'T1_PE', 'T1_NMOI', 'T1_KGNP', 'T2_NGAP', 'T2_NGFKP', 'T2_PE', 'T2_PND', 'T2_KGNP']
+        #for key in ['EXPECTED', 'KGFP', 'T1_NGAP', 'T1_NGFKP', 'T1_PE', 'T1_NMOI', 'T1_KGNP', 'T2_NGAP', 'T2_NGFKP', 'T2_PE', 'T2_PND', 'T2_KGNP']
+        for key in ['EXPECTED', 'KGFP']
     }
     total_seqr_variants = 0
 
@@ -401,18 +407,19 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
 
     missing_samples = seqr_samples - common_samples
     if len(missing_samples) > 0:
+        lm = len(missing_samples)
         logger.error(
-            f'Samples completely missing from AIP results: '
+            f'Samples ({lm}) completely missing from AIP results: '
             f'{", ".join(missing_samples)}'
         )
 
         # for each of those missing samples, add all variants
         for miss_sample in missing_samples:
             discrepancies[miss_sample] = seqr_results[miss_sample]
-            logger.error(
-                f'Sample {miss_sample}: '
-                f'{len(seqr_results[miss_sample])} missing variant(s) - @1'
-            )
+            # logger.error(
+            #     f'Sample {miss_sample}: '
+            #     f'{len(seqr_results[miss_sample])} missing variant(s) - @1'
+            # )
 
     for sample in common_samples:
 
@@ -436,10 +443,10 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
             ]
         )
 
-        logger.info(f'Sample {sample} - {matched} matched variant(s) - @3')
-        logger.info(
-            f'Sample {sample} - {len(sample_discrepancies)} missing variant(s) - @3'
-        )
+        # logger.info(f'Sample {sample} - {matched} matched variant(s) - @2')
+        # logger.info(
+        #     f'Sample {sample} - {len(sample_discrepancies)} missing variant(s) - @3'
+        # )
 
     return discrepancies
 
@@ -906,6 +913,7 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
     # strict comparison
     logger.error("strict comparison")
     flag_summary = find_seqr_flags(aip_results=aip_results, seqr_results=seqr_results)
+    print(flag_summary)
     with AnyPath(f'{output}_match_summary.json').open('w') as handle:
         json.dump(flag_summary, handle, default=str, indent=4)
 
@@ -919,11 +927,16 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
     # load and digest panel data
     logger.error("load and digest panel data")
     panel_dict = read_json_from_path(os.path.join(results_folder, 'panelapp_data.json'))
+    # print(panel_dict)
     green_genes, new_genes = green_and_new_from_panelapp(panel_dict)
 
     # if we had discrepancies, bin into classified and misc.
     logger.error("if we had discrepancies, bin into classified and misc.")
     in_vcf, not_in_vcf = check_in_vcf(vcf_path=vcf, variants=discrepancies)
+    with AnyPath(f'{output}_notvcf_summary.json').open('w') as handle:
+        json.dump(not_in_vcf, handle, default=str, indent=4)
+    with AnyPath(f'{output}_invcf_summary.json').open('w') as handle:
+        json.dump(in_vcf, handle, default=str, indent=4)
 
     # some logger content here
     logger.error("first logger content")
@@ -938,6 +951,14 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
         logger.info(f'Sample: {sample}')
         for variant in in_vcf[sample]:
             logger.info(f'\tVariant {variant} requires MOI checking')
+    
+    
+    lniv = str(len(not_in_vcf))
+    print(f'\t Number of variants missing from vcf: {lniv} ')
+    lmf = str(len(in_vcf))
+    print(f'\t Number of variants filtered by MOI: {lmf} ')
+    ld = str(len(discrepancies))
+    print(f'\t Total discrepancies: {ld} ')
 
     # if there were any variants missing from the VCF, attempt to find them in the MT
     logger.error("if there were any variants missing from the VCF, attempt to find them in the MT")
@@ -970,7 +991,7 @@ def main(results_folder: str, pedigree: str, seqr: str, vcf: str, mt: str, outpu
 if __name__ == '__main__':
     # set up a logger in this Hail Query runtime
     logger = logging.getLogger(__name__)
-    logger.setLevel(logger.INFO)
+    logger.setLevel(logging.INFO)
     parser = ArgumentParser()
     parser.add_argument('--results_folder')
     parser.add_argument('--pedigree')
