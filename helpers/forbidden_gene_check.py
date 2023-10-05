@@ -52,7 +52,7 @@ def read_json_from_path(bucket_path: str | Path | None, default: Any = None) -> 
         either the object from the JSON file, or None
     """
 
-    if bucket_path is None:
+    if bucket_path is None or not bucket_path:
         return default
 
     if isinstance(bucket_path, str):

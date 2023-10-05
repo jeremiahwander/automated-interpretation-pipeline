@@ -1,5 +1,8 @@
 [dataset_specific]
 description = "variables affecting how the final HTML report appears"
+external_lookup = ""
+forbidden = ""
+external_labels = ""
 
 seqr_instance = ""
 seqr_project = ""

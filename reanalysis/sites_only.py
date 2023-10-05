@@ -34,7 +34,8 @@ def add_make_sitesonly_job(
     job_attrs = (job_attrs or {}) | {'tool': 'gatk MakeSitesOnlyVcf'}
     j = b.new_job(job_name, job_attrs)
     j.image(image_path('gatk'))
-    res = STANDARD.set_resources(j, ncpu=2)
+    res = STANDARD.set_resources(j, ncpu=16)
+    #Edited to prevent allocation of small machine without enough tmp storage
     if storage_gb:
         j.storage(f'{storage_gb}G')
     j.declare_resource_group(
