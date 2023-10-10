@@ -594,7 +594,7 @@ def annotate_category_4(mt: hl.MatrixTable, plink_family_file: str) -> hl.Matrix
         info=mt.info.annotate(
             **{
                 'categorysample4': hl.or_else(
-                    dn_table[mt.row_key].values, MISSING_STRING
+                    dn_table[mt.row_key]['values'], MISSING_STRING
                 )
             }
         )
