@@ -81,8 +81,8 @@ class HTMLBuilder:
         seqr_path = get_config()['dataset_specific'].get('seqr_lookup')
         self.seqr = {}
 
-        if seqr_path and to_path(seqr_path).exists():
-            self.seqr = read_json_from_path(seqr_path)
+        if seqr_path:
+            self.seqr = read_json_from_path(seqr_path, default=self.seqr)
 
             # Force user to correct config file if seqr URL/project are missing
             for seqr_key in ['seqr_instance', 'seqr_project']:
