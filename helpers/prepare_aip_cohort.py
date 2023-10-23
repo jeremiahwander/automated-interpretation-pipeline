@@ -8,7 +8,7 @@ master script for preparing a run
 - generates the cohort-specific TOML file
 - tweaks for making singleton versions of the given cohort
 """
-
+# mypy: ignore-errors
 from argparse import ArgumentParser
 from itertools import product
 from typing import Any
@@ -115,7 +115,7 @@ def get_seqr_details(
         sample['projectGuid'] for sample in details_dict['samplesByGuid'].values()
     }
     assert len(project_id) == 1, f'Multiple projects identified: {project_id}'
-    project_id = project_id.pop()
+    one_project_id: str = project_id.pop()
 
     logging.info(f'{len(parsed)} families in seqr metadata')
     filename = f'seqr_{"exome_" if exome else ""}processed.json'
@@ -125,7 +125,7 @@ def get_seqr_details(
     with (remote_root / filename).open('w') as handle:
         json.dump(parsed, handle, indent=4, sort_keys=True)
 
-    return project_id, str(remote_root / filename)
+    return one_project_id, str(remote_root / filename)
 
 
 # the keys provided by the SM API, in the order to write in output
@@ -266,38 +266,11 @@ def get_pedigree_for_project(project: str) -> list[dict[str, str]]:
     Returns:
         All API returned content
     """
-    ped_query = gql(
-        """
-    query MyQuery($project: String!) {
-        project(name: $project) {
-            pedigree
-        }
-    }
-    """
-    )
-    # pylint: disable=unsubscriptable-object
-    response: dict[str, Any] = query(ped_query, variables={'project': project})
-    return response['project']['pedigree']
-
-
-def process_reverse_lookup(
-    mapping_digest: dict[str, list], local_dir: Path, remote_dir: Path
-) -> str:
-    """
-
-    Args:
-        mapping_digest ():
-        local_dir ():
-        remote_dir ():
-
-    Returns:
-
-    """
-
-    clean_dict = {
-        sample: participant
-        for participant, samples in mapping_digest.items()
-        for sample in samples
+    response = query(PED_QUERY, variables={'project': project})
+    pedigree = response['project']['pedigree']
+    lookup = {
+        sg['sample']['participant']['externalId']: sg['id']
+        for sg in response['project']['sequencingGroups']
     }
     with (to_path(local_dir) / 'external_lookup.json').open('w') as handle:
         json.dump(clean_dict, handle, indent=4)
