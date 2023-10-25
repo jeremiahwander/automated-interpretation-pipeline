@@ -157,8 +157,8 @@ def handle_hail_filtering(plink_file: str, prior_job: Job | None = None) -> Bash
     """
 
     labelling_job = get_batch().new_job(name='hail filtering')
-    set_job_resources(labelling_job, prior_job=prior_job, memory='32Gi')
-    script_path = get_git_root_relative_path_from_absolute(hail_filter_and_label.__file__)
+    set_job_resources(labelling_job, prior_job=prior_job, memory='6Gi')
+    out_vcf = output_path('hail_categorised.vcf.bgz', 'analysis')
     labelling_command = (
         f'python3 {script_path} '
         f'--mt {ANNOTATED_MT} '
