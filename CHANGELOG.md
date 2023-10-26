@@ -14,6 +14,54 @@ Suggested headings per release (as appropriate) are:
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+[2.0.0 & 2.0.1] - 2023-10-26
+
+This bump is less substantial than the version number suggests, but in hindsight the previous
+version should probably have been a major bump due to wholesale changes in how input is provided.
+
+### Added
+
+* CategoryBoolean6 (AlphaMissense) is now active, and should be implemented in a backwards
+  compatible way (no failure if annotation is absent)
+* VCF export includes `am_class` and `am_pathogenicity` (defaulting to empty String)
+* If these fields are not missing, they should render in the report's variant drop-down drawer
+
+### Changed
+
+* The Hail Labelling stage also takes a dataset argument (used to generate a dataset-specific
+  path for the temporary files/checkpoints)
+* Removed a second config file from the test framework (consolidate all fields into 1 file)
+* MyPy and Ruff are implemented as replacement linting tools. Stricter, and a billion times faster
+
+### Deprecated
+
+* Flake8 and PyLint are removed as linting tools
+
+[1.2.0] - 2023-10-16
+
+### Changed
+
+* a lot. Like... a lot
+* All the Cohort-specific content in the configuration files has been removed from the main config file. For CPG usage
+  we have some sensitivities around the open publication of the cohorts and details of the analysis carried out. As a
+  precaution (although this config does not contain sample-level data) we have removed the cohort-specific content from
+  this repository and moved it to a private repository.
+* Structurally the cohort-specific region of the config file has changed. This is to better facilitate running of AIP
+  through our main analysis pipeline, requiring less manual intervention to run exomes and genomes separately. The
+  utils methods `get_cohort_config` and `get_cohort_seq_type_conf` have been updated to reflect this.
+    1. `config.cohorts.COHORT` contains details general to a whole cohort - blacklisted genes, additional panels, solved
+       cases
+    2. `config.cohorts.COHORT.GENOME` contains details specific to the genome analysis of a cohort - the Seqr project
+       name, mapping between individual and seqr family IDs, and any labelled variants for this group
+    3. `config.cohorts.COHORT.EXOME` is the counterpart to `.GENOME`
+* Hail Labelling/Filtering now takes an output path, to be more easily included in a Hail Batch workflow
+* The run preparation and HPO-panel script now use GQL queries, which drops a few methods
+* The external_lookup file is no longer used - the same Internal-External ID mapping is noq stored alongside phenotype
+  data in the HPO panel file.
+* `--plink` argument to interpretation_runner is renamed to `--pedigree`
+* Methods to reduce a cohort by a fixed percentage have been deleted - was useful as a potential test/train set, but has
+  not been used recently
+
 [1.1.5] - 2023-08-28
 
 ### Changed
