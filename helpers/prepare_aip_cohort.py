@@ -269,7 +269,7 @@ def get_pedigree_for_project(project: str) -> list[dict[str, str]]:
     response = query(PED_QUERY, variables={'project': project})
     pedigree = response['project']['pedigree']
     lookup = {
-        sg['sample']['participant']['externalId']: sg['id']
+        sg['sample']['participant']['externalId']: [sg['id']]
         for sg in response['project']['sequencingGroups']
     }
     with (to_path(local_dir) / 'external_lookup.json').open('w') as handle:
