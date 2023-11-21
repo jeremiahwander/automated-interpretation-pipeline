@@ -165,7 +165,7 @@ def handle_hail_sv_filtering(
     """
 
     labelling_job = get_batch().new_job(name='Hail SV labelling')
-    set_job_resources(labelling_job, prior_job=prior_job, memory='lowmem')
+    set_job_resources(labelling_job, prior_job=prior_job)
     labelling_command = (
         f'python3 {hail_filter_sv.__file__} '
         f'--mt {ANNOTATED_MT} '
@@ -193,7 +193,7 @@ def handle_hail_filtering(pedigree: str, prior_job: Job | None = None) -> BashJo
     """
 
     labelling_job = get_batch().new_job(name='Hail small-variant labelling')
-    set_job_resources(labelling_job, prior_job=prior_job, memory='lowemem')
+    set_job_resources(labelling_job, prior_job=prior_job)
     labelling_command = (
         f'python3 {script_path} '
         f'--mt {ANNOTATED_MT} '
