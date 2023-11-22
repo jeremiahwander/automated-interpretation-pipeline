@@ -6,4 +6,4 @@ external_labels = ""
 
 seqr_instance = "http://seqr.broadinstitute.org"
 seqr_project = "R0384_rare_genomes_project_gen"
-seqr_lookup = "https://raregen001sa.blob.core.windows.net/test/inputs/rgp/cpg/rgp_seqr_id_mapping_cpg.json"
+seqr_lookup = ""
