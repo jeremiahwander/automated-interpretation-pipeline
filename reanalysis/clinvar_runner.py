@@ -76,7 +76,7 @@ def generate_clinvar_table(
     summarise.command(f'python3 {get_git_root_relative_path_from_absolute(summarise_clinvar_entries.__file__)} {command_options}')
 
     return summarise
-
+    # endregion
 
 def generate_annotated_data(
     annotation_out: Path, snv_vcf: Path, tmp_path: Path, dependency: Job | None = None
@@ -116,7 +116,8 @@ def generate_annotated_data(
     j = get_batch().new_job('annotate cohort')
     j.image(get_config()['workflow']['driver_image'])
 
-    # run seqr_loader, only applying VEP annotations
+    # run seqr_loader, originally applying vep only (line 128=False) testing change of line 128 to True
+    # This should allow clinvar annotation so that clinvar_by_codon has info to run on?
     j.command(
         query_command(
             seqr_loader,
@@ -125,7 +126,7 @@ def generate_annotated_data(
             str(annotation_out),
             str(vep_ht_tmp),
             str(tmp_path / 'annotation_temp'),
-            True,
+            False,
             setup_gcp=True,
         )
     )
