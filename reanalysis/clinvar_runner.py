@@ -101,7 +101,7 @@ def generate_annotated_data(
         b=get_batch(),
         input_siteonly_vcf_path=snv_vcf,
         tmp_prefix=tmp_path / 'vep_temp',
-        scatter_count=50,
+        scatter_count=80,
         out_path=vep_ht_tmp,
     )
 
