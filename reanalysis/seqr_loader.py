@@ -51,18 +51,18 @@ def annotate_cohort(
 
     logger.info(f'Importing VCF {vcf_path}')
     mt = hl.import_vcf(
-        #str(vcf_path),
+        str(vcf_path),
         #'https://kahlquisref.blob.core.windows.net/reference/RGP_data/RGP_clean_train_ed.vcf.bgz',
         #'https://kahlquisref.blob.core.windows.net/test/inputs/output_vcf_working.vcf.gz',
-        'hail-az://kahlquisref/reference/RGP_data/RGP_clean_train_ed.vcf.bgz',
+        # 'hail-az://kahlquisref/reference/RGP_data/RGP_clean_train_ed.vcf.bgz',
         reference_genome=genome_build(),
         skip_invalid_loci=True,
         force_bgz=True,
     )
-
+    mt.describe()
     logger.info(f'Loading VEP Table from {vep_ht_path}')
-    #vep_ht = _read(vep_ht_path)
-    vep_ht = _read('hail-az://kahlquisrefsa/test-tmp/reanalysis_train/2023-05-06/vep_annotations.ht')
+    vep_ht = _read(vep_ht_path)
+    # vep_ht = _read('hail-az://kahlquisrefsa/test-tmp/reanalysis_train/2023-05-06/vep_annotations.ht')
     logger.info(f'Adding VEP annotations into the Matrix Table from {vep_ht_path}')
     mt = mt.annotate_rows(vep=vep_ht[mt.locus, mt.alleles].vep)
 
