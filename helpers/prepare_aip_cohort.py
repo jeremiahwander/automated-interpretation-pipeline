@@ -336,6 +336,18 @@ def main(
 
     remote_root = to_path(BUCKET_TEMPLATE.format(dataset=project))
 
+    # find HPO-matched panels for each participant
+    hpo_panel_dict = hpo_match(
+        dataset=project,
+        hpo_file=obo,
+        panel_out=str(local_root / 'participant_panels.json'),
+    )
+
+    panel_remote = remote_root / 'participant_panels.json'
+    with panel_remote.open('w') as handle:
+        handle.write(hpo_panel_dict.model_dump_json(indent=4))
+        logging.info(f'Wrote panel file to {panel_remote}')
+
     # get the list of all pedigree members as list of dictionaries
     logging.info('Pulling all pedigree members')
     pedigree_dicts = get_pedigree_for_project(project=project)

@@ -14,6 +14,8 @@ from helpers.hpo_panel_matching import (
     read_hpo_tree,
     match_hpo_terms,
 )
+from reanalysis.models import ParticipantHPOPanels, PhenotypeMatchedPanels
+
 
 PANELAPP = 'https://fake_panelapp.agha.umccr.org/api/v1/panels/'
 
@@ -22,8 +24,6 @@ PANELAPP = 'https://fake_panelapp.agha.umccr.org/api/v1/panels/'
 def fixture_fake_panelapp_overview(requests_mock, fake_panelapp_overview):
     """
     a new fixture to contain the panel data
-    :param requests_mock:
-    :param fake_panelapp_overview:
     """
     requests_mock.register_uri(
         'GET',
@@ -38,6 +38,41 @@ def test_get_panels(fake_panelapp_overview):
     """
     panels_parsed = get_panels(PANELAPP)
     assert panels_parsed == {'HP:1': {2}, 'HP:4': {1}, 'HP:6': {2}}
+
+
+def test_match_hpo_terms(fake_obo_path):
+    """
+    check that HP tree traversal works
+    this test is kinda limited now that the layer count is constant
+    """
+    obo_parsed = read_obo(fake_obo_path)
+    panel_map = {'HP:2': {1, 2}}
+    assert match_hpo_terms(
+        panel_map=panel_map, hpo_tree=obo_parsed, hpo_str='HP:4'
+    ) == {1, 2}
+    assert match_hpo_terms(
+        panel_map=panel_map, hpo_tree=obo_parsed, hpo_str='HP:2'
+    ) == {1, 2}
+
+
+def test_match_hpos_to_panels(fake_obo_path):
+    """
+    test the hpo-to-panel matching
+    """
+    panel_map = {'HP:2': {1, 2}, 'HP:5': {5}}
+    assert match_hpos_to_panels(
+        panel_map, fake_obo_path, all_hpos={'HP:4', 'HP:7a'}
+    ) == {
+        'HP:4': {1, 2},
+        'HP:7a': {5},
+    }
+    # full depth from the terminal node should capture all panels
+    assert match_hpos_to_panels(
+        panel_map, fake_obo_path, all_hpos={'HP:4', 'HP:7a'}
+    ) == {
+        'HP:4': {1, 2},
+        'HP:7a': {5},
+    }
 
 
 def test_read_hpo_tree(fake_obo_path):
@@ -121,33 +156,44 @@ def test_match_participants_to_panels():
     -------
 
     """
-    party_hpo = {
-        'participant1': {'family_id': 'fam1', 'hpo_terms': {'HP:1', 'HP:2'}},
-        'participant2': {'family_id': 'fam2', 'hpo_terms': {'HP:1', 'HP:6'}},
-    }
-    hpo_to_panels = {
-        'HP:1': {'room', '101'},
-        'HP:2': {'2002'},
-        'HP:3': {'nothing', 'at', 'all'},
-        'HP:6': {'666'},
-    }
-    participant_map = {'participant1': ['luke_skywalker']}
-    results = match_participants_to_panels(
-        participant_hpos=party_hpo,
-        hpo_panels=hpo_to_panels,
-        participant_map=participant_map,
+    party_hpo = PhenotypeMatchedPanels(
+        **{
+            'samples': {
+                'luke_skywalker': {
+                    'external_id': 'participant1',
+                    'family_id': 'fam1',
+                    'hpo_terms': {'HP:1', 'HP:2'},
+                    'panels': {137},
+                },
+                'participant2': {
+                    'external_id': 'participant2',
+                    'family_id': 'fam2',
+                    'hpo_terms': {'HP:1', 'HP:6'},
+                    'panels': {137},
+                },
+            }
+        }
     )
-    assert results == {
-        'luke_skywalker': {
+    hpo_to_panels = {
+        'HP:1': {101, 102},
+        'HP:2': {2002},
+        'HP:3': {00, 1, 2},
+        'HP:6': {666},
+    }
+    match_participants_to_panels(participant_hpos=party_hpo, hpo_panels=hpo_to_panels)
+    assert party_hpo.samples['luke_skywalker'] == ParticipantHPOPanels(
+        **{
             'external_id': 'participant1',
             'family_id': 'fam1',
             'hpo_terms': {'HP:1', 'HP:2'},
-            'panels': {137, 'room', '101', '2002'},
-        },
-        'participant2': {
+            'panels': {137, 101, 102, 2002},
+        }
+    )
+    assert party_hpo.samples['participant2'] == ParticipantHPOPanels(
+        **{
             'external_id': 'participant2',
             'family_id': 'fam2',
             'hpo_terms': {'HP:1', 'HP:6'},
-            'panels': {137, 'room', '101', '666'},
-        },
-    }
+            'panels': {137, 101, 102, 666},
+        }
+    )
