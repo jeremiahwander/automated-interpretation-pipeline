@@ -86,12 +86,6 @@ default_timeout = 12000
 default_memory = 'highmem'
 billing_project = 'best-kahlquis'
 
-[images]
-gatk = 'australia-southeast1-docker.pkg.dev/cpg-common/images/gatk:4.2.6.1'
-aip = 'australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_aip:2.1.1'
-vep_110 = "australia-southeast1-docker.pkg.dev/cpg-common/images/vep_110:release_110.1"
-cpg_workflows = "australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_workflows:latest"
-
 [references]
 genome_build = "GRCh38"
 vep_mount = "https://kahlquisref.blob.core.windows.net/reference/vep/105.0/mount"
@@ -112,72 +106,3 @@ cpg_aip = "kahlquisaipcr.azurecr.io/cpg-common/images/cpg_aip:latest"
 #cohort_panels = any panel IDs to be applied to this cohort, even if not otherwise phenotype-matched
 #cohort_percentage = when generating an analysis pedigree, reduce the cohort to this percentage of the total. Default = 100
 #gene_prior = if a specific gene list is to be used to determine Cat 2 (new gene-disease associations), provide the filepath here
-
-[cohorts.acute-care]
-#cohort_percentage = 80
-gene_prior = 'gs://cpg-acute-care-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.ag-cardiac]
-cohort_panels = [4059]
-
-[cohorts.ag-hidden]
-gene_prior = 'gs://cpg-ag-hidden-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.brain-malf]
-#cohort_percentage = 80
-gene_prior = 'gs://cpg-brain-malf-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.broad-rgp]
-gene_prior = "gs://cpg-broad-rgp-test-analysis/reanalysis/jan_2020_panels.json"
-
-[cohorts.circa]
-#cohort_percentage = 80
-
-[cohorts.epileptic-enceph]
-#cohort_percentage = 80
-gene_prior = 'gs://cpg-epileptic-enceph-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.heartkids]
-clinvar_filter = ['victorian clinical genetics services,murdoch childrens research institute']
-gene_prior = 'gs://cpg-heartkids-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.hereditary-neuro]
-#cohort_percentage = 80
-
-[cohorts.ibmdx]
-
-[cohorts.kidgen]
-gene_prior = 'gs://cpg-kidgen-test-analysis/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.leukodystrophies]
-cohort_panels = [298, 299, 3094]
-#cohort_percentage = 80
-gene_prior = 'gs://cpg-leukodystrophies-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.mito-disease]
-#cohort_percentage = 80
-gene_prior = 'gs://cpg-mito-disease-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.ohmr3-mendelian]
-
-[cohorts.ohmr4-epilepsy]
-
-[cohorts.perth-neuro]
-
-[cohorts.ravenscroft-arch]
-
-[cohorts.ravenscroft-rdstudy]
-
-[cohorts.rdnow]
-clinvar_filter = ['victorian clinical genetics services,murdoch childrens research institute']
-gene_prior = 'gs://cpg-rdnow-test/reanalysis/pre_panelapp_mendeliome.json'
-
-[cohorts.schr-neuro]
-
-[cohorts.severalgenomes]
-
-[cohorts.rgp]
-
-[cohorts.udn-aus]
-
-[cohorts.rgptest]
