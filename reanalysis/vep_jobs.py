@@ -281,7 +281,7 @@ def vep_one(
     vep_mount_path = reference_path('vep_110_mount')
     data_mount = to_path(f'/{vep_mount_path.drive}')
     j.cloudfuse(vep_mount_path.drive, str(data_mount), read_only=True)
-    vep_dir = data_mount / '/'.join(vep_mount_path.parts[2:])
+    vep_dir = data_mount / '/'.join(vep_mount_path.parts[3:])
 
     # assume VEP 110 has a standard install location
     loftee_conf = {

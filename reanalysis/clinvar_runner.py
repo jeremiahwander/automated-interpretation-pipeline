@@ -149,7 +149,7 @@ def main(date: str | None = None, folder: str | None = None):
     """
 
     # print the config we use once
-    _conf = get_config(True)
+    _conf = get_config()
 
     if folder is None:
         cloud_folder = to_path(

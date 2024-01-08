@@ -295,7 +295,8 @@ def get_cohort_config():
 
     global COHORT_CONFIG
     if COHORT_CONFIG is None:
-        dataset = dataset or get_config()['workflow']['dataset']
+        dataset = get_config()['workflow']['dataset']
+        #dataset = dataset or get_config()['workflow']['dataset']
         COHORT_CONFIG = get_config().get('cohorts', {}).get(dataset)
         if COHORT_CONFIG is None:
             raise AssertionError(f'{dataset} is not represented in config')

@@ -1,9 +1,14 @@
-[dataset_specific]
-description = "variables affecting how the final HTML report appears"
-external_lookup = ""
-forbidden = ""
-external_labels = ""
+[workflow]
+dataset = "rgptest"
 
+
+[cohorts.rgptest]
+description = "RGP cohort"
+
+[cohorts.rgptest.genome]
+description = ""
+seqr_lookup = ""
+external_labels = ""
 seqr_instance = ""
 seqr_project = ""
-seqr_lookup = ""
+
