@@ -9,32 +9,27 @@ Entrypoint for the comparison process
 import logging
 import os
 import sys
-
 from argparse import ArgumentParser
 
 import hailtop.batch as hb
 
+from cpg_utils.config import get_config
 from cpg_utils.git import (
-    prepare_git_job,
     get_git_commit_ref_of_current_repository,
     get_organisation_name_from_current_directory,
     get_repo_name_from_current_directory,
-    get_git_root_relative_path_from_absolute
+    prepare_git_job,
 )
 from cpg_utils.hail_batch import (
     authenticate_cloud_credentials_in_job,
     copy_common_env,
     image_path,
-    remote_tmpdir,
     output_path,
+    remote_tmpdir,
 )
-from cpg_utils.config import get_config
 
-# Namespacing gets weird here because both the package and the module share the same name. When running via shell script
-# this will import the module, thus it follows a different pattern from reanalysis/interpretation_runner.py.
-import comparison
-import importlib
-importlib.reload(comparison)
+# local script references
+COMPARISON_SCRIPT = os.path.join(os.path.dirname(__file__), 'comparison.py')
 
 
 def main(results_folder: str, truth: str, mt: str, fam_name: str):

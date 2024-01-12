@@ -18,8 +18,6 @@ from csv import DictReader
 from enum import Enum
 from typing import Any
 
-import hail as hl
-import pandas as pd
 from cloudpathlib import AnyPath
 from cpg_utils import to_path
 from cpg_utils.config import get_config
@@ -27,13 +25,22 @@ from cpg_utils.hail_batch import init_batch
 from cyvcf2 import VCFReader
 from peddy import Ped
 
-from reanalysis.hail_filter_and_label import (CONFLICTING, LOFTEE_HC,
-                                              PATHOGENIC, extract_annotations,
-                                              filter_matrix_by_ac,
-                                              filter_on_quality_flags,
-                                              filter_to_population_rare,
-                                              filter_to_well_normalised,
-                                              green_and_new_from_panelapp)
+import hail as hl
+
+from cpg_utils.config import get_config
+from cpg_utils.hail_batch import init_batch
+
+from reanalysis.hail_filter_and_label import (
+    CONFLICTING,
+    LOFTEE_HC,
+    PATHOGENIC,
+    extract_annotations,
+    filter_matrix_by_ac,
+    filter_on_quality_flags,
+    filter_to_population_rare,
+    filter_to_well_normalised,
+    green_and_new_from_panelapp,
+)
 from reanalysis.utils import canonical_contigs_from_vcf, read_json_from_path
 
 SAMPLE_NUM_RE = re.compile(r'sample_[0-9]+')
@@ -263,9 +270,8 @@ def common_format_aip(results_dict: dict[str, Any]) -> CommonDict:
     sample_dict: CommonDict = defaultdict(list)
 
     # collect all per-sample results into a separate index
-    for sample, variants in results_dict['results'].items():
-
-        for var in variants['variants']:
+    for sample, variants in results_dict.items():
+        for var in variants:
             coords = var['var_data']['coords']
             sample_dict[sample].append(
                 CommonFormatResult(
@@ -305,7 +311,6 @@ def common_format_seqr(seqr: str, affected: list[str]) -> CommonDict:
         ]
 
         for entry in seqr_parser:
-
             # get all valid tags
             tags = [
                 Confidence(tag)
@@ -424,7 +429,6 @@ def find_missing(aip_results: CommonDict, seqr_results: CommonDict) -> CommonDic
             # )
 
     for sample in common_samples:
-
         # only finds discrepancies, not Matched results - revise
         sample_discrepancies = [
             variant
@@ -488,12 +492,10 @@ def check_in_vcf(vcf_path: str, variants: CommonDict) -> tuple[CommonDict, Commo
     # iterate over all samples, and corresponding lists
     for sample, var_list in variants.items():
         for var in var_list:
-
             # assume missing until confirmed otherwise
             found = False
             normalised_chrom, coordinates = var.get_cyvcf2_pos(vcf_contigs)
             for vcf_var in vcf_handler(coordinates):
-
                 # check position and alleles
                 if (
                     vcf_var.CHROM == normalised_chrom

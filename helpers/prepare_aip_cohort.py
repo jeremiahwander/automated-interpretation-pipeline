@@ -8,30 +8,21 @@ master script for preparing a run
 - generates the cohort-specific TOML file
 - tweaks for making singleton versions of the given cohort
 """
-# mypy: ignore-errors
-from argparse import ArgumentParser
-from itertools import product
-from typing import Any
-import hashlib
 import json
 import logging
 import os
-import re
+
+# mypy: ignore-errors
+from argparse import ArgumentParser
+from itertools import product
+
 import toml
 
-from cpg_utils import to_path, Path
-from cpg_utils.config import get_config
-
+from cpg_utils import Path, to_path
 from metamist.graphql import gql, query
 
-from reanalysis.utils import read_json_from_path
-from helpers.hpo_panel_matching import (
-    get_panels,
-    get_unique_hpo_terms,
-    match_hpos_to_panels,
-    query_and_parse_metadata,
-)
-from helpers.utils import ext_to_int_sample_map
+from reanalysis.hpo_panel_match import main as hpo_match
+from reanalysis.utils import get_cohort_config, read_json_from_path
 
 BUCKET_TEMPLATE = 'gs://cpg-{dataset}-test-analysis/reanalysis'
 LOCAL_TEMPLATE = 'inputs/{dataset}'

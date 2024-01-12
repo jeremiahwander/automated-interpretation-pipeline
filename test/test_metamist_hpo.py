@@ -2,20 +2,18 @@
 test file for metamist panel-participant matching
 """
 
-import pytest
-
 import networkx
+import pytest
+from obonet import read_obo
 
-from helpers.hpo_panel_matching import (
+from reanalysis.hpo_panel_match import (
+    get_panels,
+    match_hpo_terms,
     match_hpos_to_panels,
     get_unique_hpo_terms,
     match_participants_to_panels,
-    get_panels,
-    read_hpo_tree,
-    match_hpo_terms,
 )
 from reanalysis.models import ParticipantHPOPanels, PhenotypeMatchedPanels
-
 
 PANELAPP = 'https://fake_panelapp.agha.umccr.org/api/v1/panels/'
 

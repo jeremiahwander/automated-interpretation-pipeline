@@ -5,7 +5,8 @@ Hail Query functions for seqr loader.
 import logging
 import os
 import hail as hl
-from cpg_utils.hail_batch import reference_path, genome_build
+
+from cpg_utils.hail_batch import genome_build, reference_path
 
 
 def annotate_cohort(
