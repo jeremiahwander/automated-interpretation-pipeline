@@ -16,7 +16,7 @@ CONFIG_PATH=https://kahlquisrefsa.blob.core.windows.net/test/config-$(LC_ALL=C t
 python3 reanalysis/generate_workflow_config.py \
   --dataset rgptest \
   --access_level test \
-  --driver_image kahlquisaipcr.azurecr.io/cpg-common/images/cpg_aip:latest \
+  --driver_image kahlquisaipcr.azurecr.io/cpg-common/images/cpg_aip:miah \
   --output_prefix "reanalysis_test/${DATE}" \
   --image_base kahlquisaipcr.azurecr.io/cpg-common/images \
   --reference_base https://kahlquisref.blob.core.windows.net/reference \

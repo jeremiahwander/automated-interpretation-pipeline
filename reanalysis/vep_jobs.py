@@ -207,7 +207,7 @@ def add_vep_jobs(
         # noinspection PyTypeChecker
         vep_one_job = vep_one(
             b,
-            vcf=input_vcf_parts[idx]['vcf.gz'],
+            vcf=subset_j.output_vcf['vcf.gz'],
             out_path=result_part_paths[idx],
             job_attrs=(job_attrs or {}) | {'part': f'{idx + 1}/{scatter_count}'},
         )

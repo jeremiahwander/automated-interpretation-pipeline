@@ -99,7 +99,7 @@ gatk = "kahlquisaipcr.azurecr.io/cpg-common/images/gatk:4.2.6.1"
 picard = "kahlquisaipcr.azurecr.io/cpg-common/images/picard:2.27.4"
 samtools = "kahlquisaipcr.azurecr.io/cpg-common/images/samtools:1.16.1"
 vep = "kahlquisaipcr.azurecr.io/cpg-common/images/vep:105.0"
-cpg_aip = "kahlquisaipcr.azurecr.io/cpg-common/images/cpg_aip:latest"
+cpg_aip = "kahlquisaipcr.azurecr.io/cpg-common/images/cpg_aip:miah"
 
 # per-cohort section
 #clinvar_filter = when running a clinvar re-summary, remove submissions by these sites. Default = no removal
