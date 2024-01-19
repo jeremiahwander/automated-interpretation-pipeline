@@ -20,6 +20,7 @@ from cpg_utils.hail_batch import (
     get_batch,
     query_command,
 )
+from cpg_utils.git import get_git_root_relative_path_from_absolute
 
 from reanalysis import clinvar_by_codon, seqr_loader, summarise_clinvar_entries
 from reanalysis.vep_jobs import add_vep_jobs

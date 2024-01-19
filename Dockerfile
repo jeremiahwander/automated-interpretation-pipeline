@@ -1,5 +1,5 @@
 ARG BASE_CR
-FROM $BASE_CR/cpg-common/images/cpg_workflows
+FROM $BASE_CR/cpg-common/images/hail-driver:latest
 
 COPY requirements.txt .
 COPY requirements-dev.txt .

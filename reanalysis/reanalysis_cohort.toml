@@ -1,5 +1,6 @@
 [workflow]
 dataset = "rgptest"
+ar-guid = "standalone"
 
 
 [cohorts.rgptest]
