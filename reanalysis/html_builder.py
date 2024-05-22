@@ -514,8 +514,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', help='Optional, dataset to use', default=None)
     args = parser.parse_args()
 
-    DATASET_CONFIG = get_cohort_config(args.dataset)
-    DATASET_SEQ_CONFIG = get_cohort_seq_type_conf(args.dataset)
+    DATASET_CONFIG = get_cohort_config()
+    DATASET_SEQ_CONFIG = get_cohort_seq_type_conf()
 
     # build the HTML using all results
     html = HTMLBuilder(

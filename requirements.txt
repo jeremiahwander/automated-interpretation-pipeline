@@ -1,8 +1,8 @@
 click>=8.1.7
 cloudpathlib[all]>=0.16.0
 #cpg-utils>=4.18.2
-cpg-utils-ms>=1.3.6
-cyvcf2==0.30.18
+cpg-utils-ms>=1.3.7
+cyvcf2>=0.30.18
 dill>=0.3.7
 hail>=0.2.120
 Jinja2==3.0.3

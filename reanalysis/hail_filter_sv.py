@@ -41,7 +41,7 @@ def filter_matrix_by_af(
     """
 
     return mt.filter_rows(
-        (hl.or_else(mt.info['gnomad_v2.1_sv_AF'], MISSING_INT) < af_threshold)
+        (hl.or_else(mt.info['gnomAD_V2_AF'], MISSING_INT) < af_threshold)
     )
 
 

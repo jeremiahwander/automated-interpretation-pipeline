@@ -202,7 +202,7 @@ def clean_and_filter(
     Returns:
         cleaned data
     """
-    cohort_panels = set(get_cohort_config(dataset).get('cohort_panels', []))
+    cohort_panels = set(get_cohort_config().get('cohort_panels', []))
 
     panel_meta: dict[int, str] = {
         content.id: content.name for content in panelapp_data.metadata
@@ -232,21 +232,22 @@ def clean_and_filter(
         # check that the gene is in a panel of interest, and confirm new
         # neither step is required if no custom panel data is supplied
         if participant_panels is not None:
-            # intersection to find participant phenotype-matched panels
-            phenotype_intersection = participant_panels.samples[
-                each_event.sample
-            ].panels.intersection(all_panels)
+            if participant_panels.samples:
+                # intersection to find participant phenotype-matched panels
+                phenotype_intersection = participant_panels.samples[
+                    each_event.sample
+                ].panels.intersection(all_panels)
 
-            # is this gene relevant for this participant?
-            # this test includes matched, cohort-level, and core panel
-            if not phenotype_intersection.union(cohort_intersection):
-                continue
+                # is this gene relevant for this participant?
+                # this test includes matched, cohort-level, and core panel
+                if not phenotype_intersection.union(cohort_intersection):
+                    continue
 
-            matched_panels = {
-                panel_meta[pid]
-                for pid in phenotype_intersection
-                if pid != get_config()['workflow'].get('default_panel', 137)
-            }
+                matched_panels = {
+                    panel_meta[pid]
+                    for pid in phenotype_intersection
+                    if pid != get_config()['workflow'].get('default_panel', 137)
+                }
 
         forced_panels = set()
         if cohort_intersection:
@@ -388,7 +389,7 @@ def prepare_results_shell(
     results_shell = ResultData(metadata=results_meta)
 
     # find the solved cases in this project
-    solved_cases = get_cohort_config(dataset).get('solved_cases', [])
+    solved_cases = get_cohort_config().get('solved_cases', [])
     panel_meta = {content.id: content.name for content in panelapp.metadata}
 
     # limit to affected samples present in both Pedigree and VCF

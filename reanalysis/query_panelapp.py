@@ -39,6 +39,10 @@ PANELAPP_BASE = get_config()['panels'].get('panelapp', PANELAPP_HARD_CODED_DEFAU
 DEFAULT_PANEL = get_config()['panels'].get('default_panel', 137)
 
 
+#Experimental
+from cloudpathlib import CloudPath
+
+
 def request_panel_data(url: str) -> tuple[str, str, list]:
     """
     takes care of the panelapp query
@@ -302,7 +306,7 @@ def main(panels: str | None, out_path: str, dataset: str | None = None):
 
     # find and extract this dataset's portion of the config file
     # set the Forbidden genes (defaulting to an empty set)
-    forbidden_path = get_cohort_config(dataset).get('forbidden')
+    forbidden_path = get_cohort_config().get('forbidden')
     forbidden_genes = set()
     if forbidden_path:
         forbidden_genes = read_json_from_path(forbidden_path, forbidden_genes)
@@ -316,7 +320,7 @@ def main(panels: str | None, out_path: str, dataset: str | None = None):
         old_data = read_json_from_path(old_file, return_model=HistoricPanels)  # type: ignore
 
     # todo this will fail at the moment
-    elif previous := get_cohort_config(dataset).get('gene_prior'):
+    elif previous := get_cohort_config().get('gene_prior'):
         get_logger().info(f'Reading legacy data from {previous}')
         old_data = read_json_from_path(previous, return_model=HistoricPanels)  # type: ignore
 
@@ -334,6 +338,7 @@ def main(panels: str | None, out_path: str, dataset: str | None = None):
     gene_dict = PanelApp(genes={})
 
     # first add the base content
+    print("get_panel_green")
     get_panel_green(
         gene_dict,
         old_data=old_data,
@@ -343,9 +348,10 @@ def main(panels: str | None, out_path: str, dataset: str | None = None):
 
     # store the list of genes currently on the core panel
     if twelve_months:
-        twelve_months = set(gene_dict['genes'])
+        twelve_months = set(gene_dict.genes)
 
     # if participant panels were provided, add each of those to the gene data
+    print("participant panels")
     panel_list = set()
     if panels is not None:
         hpo_panel_object = read_json_from_path(
@@ -357,12 +363,14 @@ def main(panels: str | None, out_path: str, dataset: str | None = None):
         )
 
     # now check if there are cohort-wide override panels
-    if extra_panels := get_cohort_config(dataset).get('cohort_panels'):
+    print("cohort overide panels")
+    if extra_panels := get_cohort_config().get('cohort_panels'):
         get_logger().info(
             f'Cohort-specific panels: {", ".join(map(str, extra_panels))}'
         )
         panel_list.update(extra_panels)
 
+    print("getting panels")
     for panel in panel_list:
         # skip mendeliome - we already queried for it
         if panel == DEFAULT_PANEL:
@@ -376,10 +384,12 @@ def main(panels: str | None, out_path: str, dataset: str | None = None):
         )
 
     # now get the best MOI
+    print("getting moi")
     get_best_moi(gene_dict.genes)
 
     # if we didn't have prior reference data, scrub down new statuses
     # new_genes can be empty as a result of a successful query
+    print("twelve months")
     if twelve_months:
         old_version = find_core_panel_version()
         if old_version is None:
@@ -391,10 +401,19 @@ def main(panels: str | None, out_path: str, dataset: str | None = None):
         overwrite_new_status(gene_dict, new_gene_set)
 
     # write the output to long term storage
-    with to_path(out_path).open('w') as out_file:
+    print("writing output")
+    #print(out_path)
+    # https://kahlquisrefsa.blob.core.windows.net/test-analysis/reanalysis_train/2024-02-09/panelapp_data.json
+    # hail-az://kahlquisrefsa/test-analysis/reanalysis_train/2024-02-09/panelapp_data.json
+    out = CloudPath('hail-az://kahlquisrefsa/test-analysis/reanalysis_train/2024-04-01/panelapp_data.json')
+    print(out)
+    with out.open('w') as out_file:
+        print("out_file:")
+        print(out_file)
         out_file.write(PanelApp.model_validate(gene_dict).model_dump_json(indent=4))
-
-    save_new_historic(old_data, dataset=dataset, prefix='panel_')
+        # out_file.write('test data')
+    # print("save_new_historic")
+    # save_new_historic(old_data, dataset=dataset, prefix='panel_')
 
 
 if __name__ == '__main__':

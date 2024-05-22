@@ -199,7 +199,7 @@ def get_cohort_seq_type_conf(dataset: str | None = None):
     global COHORT_SEQ_CONFIG
     if COHORT_SEQ_CONFIG is None:
         dataset = dataset or get_config()['workflow']['dataset']
-        cohort_conf = get_cohort_config(dataset)
+        cohort_conf = get_cohort_config()
         seq_type = get_config()['workflow']['sequencing_type']
         COHORT_SEQ_CONFIG = cohort_conf.get(seq_type, {})
         assert COHORT_SEQ_CONFIG, f'{dataset} - {seq_type} is not represented in config'
@@ -232,7 +232,7 @@ def get_new_gene_map(
 
     # any dataset-specific panel data, + 'core' panel
     cohort_panels = [
-        *get_cohort_config(dataset).get('cohort_panels', []),
+        *get_cohort_config().get('cohort_panels', []),
         get_config()['panels']['default_panel'],
     ]
 
@@ -290,7 +290,7 @@ def get_phase_data(samples, var) -> dict[str, dict[int, str]]:
     # this might need to store the exact genotype too
     # i.e. 0|1 and 1|0 can be in the same phase-set
     # but are un-phased variants
-
+    # print(samples, var)
     try:
         for sample, phase, genotype in zip(
             samples, map(int, var.format('PS')), var.genotypes
@@ -304,8 +304,8 @@ def get_phase_data(samples, var) -> dict[str, dict[int, str]]:
             if phase != PHASE_SET_DEFAULT:
                 phased_dict[sample][phase] = gt
     except KeyError as ke:
-        raise ke
-        get_logger().info('failed to find PS phase attributes')
+        # raise ke
+        # get_logger().info('failed to find PS phase attributes')
         try:
             # retry using PGT & PID
             for sample, phase_gt, phase_id in zip(
@@ -313,9 +313,12 @@ def get_phase_data(samples, var) -> dict[str, dict[int, str]]:
             ):
                 if phase_gt != '.' and phase_id != '.':
                     phased_dict[sample][phase_id] = phase_gt
+                # print(sample)
+                # print(phase_id)
+                # print(phase_gt)
         except KeyError:
             get_logger().info('also failed using PID and PGT')
-
+    # print(phased_dict)
     return dict(phased_dict)
 
 
@@ -840,7 +843,7 @@ def filter_results(results: ResultData, singletons: bool, dataset: str):
     Returns: same results annotated with date-first-seen
     """
 
-    historic_folder = get_cohort_seq_type_conf(dataset).get('historic_results')
+    historic_folder = get_cohort_seq_type_conf().get('historic_results')
 
     if historic_folder is None:
         get_logger().info('No historic data folder, no filtering')
@@ -884,7 +887,7 @@ def save_new_historic(
         prefix (str): name prefix for this file (optional)
     """
 
-    directory = get_cohort_seq_type_conf(dataset).get('historic_results')
+    directory = get_cohort_seq_type_conf().get('historic_results')
 
     new_file = to_path(directory) / f'{prefix}{TODAY}.json'
     with new_file.open('w') as handle:
@@ -908,7 +911,7 @@ def find_latest_file(
     """
 
     if results_folder is None:
-        results_folder = get_cohort_seq_type_conf(dataset).get('historic_results')
+        results_folder = get_cohort_seq_type_conf().get('historic_results')
         if results_folder is None:
             get_logger().info('`historic_results` not present in config')
             return None

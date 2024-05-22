@@ -68,7 +68,7 @@ class VariantCommon(BaseModel):
 
     coordinates: Coordinates = Field(repr=True)
     info: dict[
-        str, str | int | float | list[str] | list[float] | dict[str, str] | bool
+        str, str | int | float | list[str] | list[float] | dict[str, str] | bool | None
     ] = Field(default_factory=dict)
     het_samples: set[str] = Field(default_factory=set, exclude=True)
     hom_samples: set[str] = Field(default_factory=set, exclude=True)

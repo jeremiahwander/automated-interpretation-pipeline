@@ -70,7 +70,7 @@ def annotate_cohort(
         return
 
     mt = _checkpoint(mt, 'mt-plus-vep.mt')
-
+    # mt = _read(os.path.join(checkpoint_prefix, 'mt-plus-vep.mt'))
     # Add potentially missing fields
     if not all(attr in mt.row_value for attr in ['AC', 'AF', 'AN']):
         if mt.count_cols() == 0:
@@ -95,7 +95,9 @@ def annotate_cohort(
     mt = mt.annotate_rows(clinvar_data=clinvar_ht[mt.row_key], **ref_ht[mt.row_key])
 
     mt = _checkpoint(mt, 'mt-plus-ref-data.mt')
-
+    
+    # mt = _read(os.path.join(checkpoint_prefix, 'mt-plus-ref-data.mt'))
+    
     mt = mt.annotate_rows(
         geneIds=hl.set(mt.vep.transcript_consequences.map(lambda c: c.gene_id)),
         clinvar=hl.struct(

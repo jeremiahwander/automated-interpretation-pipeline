@@ -949,7 +949,11 @@ def green_and_new_from_panelapp(
     """
 
     # take all the green genes, remove the metadata
+    print("panel_genes: ")
+    print(panel_genes)
     green_genes = set(panel_genes.keys())
+    print("green_genes: ")
+    print(green_genes)
     logging.info(f'Extracted {len(green_genes)} green genes')
     green_gene_set_expression = hl.literal(green_genes)
 
@@ -1134,7 +1138,8 @@ def main(
         raise KeyError('Fields were missing from the input Matrix')
 
     # subset to currently considered samples
-    mt = subselect_mt_to_pedigree(mt, pedigree=plink)
+    #mt = subselect_mt_to_pedigree(mt, pedigree=plink)
+    mt = subselect_mt_to_pedigree(mt, pedigree)
 
     logging.debug(
         f'Loaded annotated MT from {mt_path}, size: {mt.count_rows()}',

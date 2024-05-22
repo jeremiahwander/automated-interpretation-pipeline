@@ -29,11 +29,13 @@ from cpg_utils.hail_batch import (
     query_command,
 )
 
+from cpg_utils.git import get_git_root_relative_path_from_absolute
+
 from reanalysis import (
     hail_filter_and_label,
     hail_filter_sv,
     html_builder,
-    metamist_registration,
+#     metamist_registration,
     mt_to_vcf,
     query_panelapp,
     seqr_loader,
@@ -164,7 +166,8 @@ def handle_hail_sv_filtering(
     labelling_job = get_batch().new_job(name='Hail SV labelling')
     set_job_resources(labelling_job, prior_job=prior_job)
     labelling_command = (
-        f'python3 {hail_filter_sv.__file__} '
+        # f'python3 {hail_filter_sv.__file__} '
+        f'python3 reanalysis/hail_filter_sv.py '
         f'--mt {sv_mt} '
         f'--panelapp {PANELAPP_JSON_OUT} '
         f'--pedigree {pedigree} '
@@ -192,7 +195,8 @@ def handle_hail_filtering(pedigree: str, prior_job: Job | None = None) -> BashJo
     labelling_job = get_batch().new_job(name='Hail small-variant labelling')
     set_job_resources(labelling_job, prior_job=prior_job)
     labelling_command = (
-        f'python3 {script_path} '
+        #f'python3 {hail_filter_and_label.__file__} '
+        f'python3 reanalysis/hail_filter_and_label.py '
         f'--mt {ANNOTATED_MT} '
         f'--panelapp {PANELAPP_JSON_OUT} '
         f'--pedigree {pedigree} '
@@ -235,6 +239,9 @@ def handle_results_job(
 
     # add the labelled SV argument if appropriate
     labelled_sv = f'--labelled_sv {labelled_sv} ' if labelled_sv else ''
+
+    validation_script_path = get_git_root_relative_path_from_absolute(validate_categories.__file__)
+
 
     results_command = (
         f'python3 {validation_script_path} '
@@ -291,7 +298,8 @@ def handle_result_presentation_job(
     # if a new script is added, it needs to be registered here to become usable
     scripts_and_inputs = {
         'cpg': (
-            html_builder.__file__,
+            #html_builder.__file__,
+            'reanalysis/html_builder.py',
             ['results', 'panelapp', 'pedigree', 'output', 'latest'],
         )
     }
@@ -517,7 +525,7 @@ def main(
             f"The Labelled VCF {HAIL_VCF_OUT!r} doesn't exist; regenerating"
         )
         prior_job = handle_hail_filtering(
-            prior_job=prior_job, plink_file=pedigree_in_batch
+            prior_job=prior_job, pedigree=pedigree_in_batch
         )
         output_dict['hail_vcf'] = HAIL_VCF_OUT
     # endregion
@@ -538,7 +546,7 @@ def main(
     # region: run results job
     # very iffy, I do not like it
     if sv_path:
-        input_path = f'{input_path}, {sv_path}'
+        input_path = 'RGP_Oct2023_plus_SVs'
 
     prior_job = handle_results_job(
         labelled_vcf=labelled_vcf_in_batch,

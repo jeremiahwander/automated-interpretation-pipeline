@@ -14,27 +14,77 @@ from cpg_utils.hail_batch import (
     command,
     fasta_res_group,
     image_path,
-    query_command,
+#    query_command,
     reference_path,
 )
 
+from typing import Dict, List, Literal, Optional, Union
+import inspect
+def query_command(
+    module,
+    func_name: str,
+    *func_args,
+    setup_gcp: bool = False,
+    setup_hail: bool = True,
+    packages: Optional[List[str]] = None,
+    init_batch_args: dict[str, str | int] | None = None,
+) -> str:
+    """
+    Construct a command to run a python function inside a Hail Batch job.
+    If hail_billing_project is provided, Hail Query will be also initialised.
+    Run a Python Hail Query function inside a Hail Batch job.
+    Constructs a command string to use with job.command().
+    If hail_billing_project is provided, Hail Query will be initialised.
+    init_batch_args can be used to pass additional arguments to init_batch.
+    this is a dict of args, which will be placed into the batch initiation command
+    e.g. {'worker_memory': 'highmem'} -> 'init_batch(worker_memory="highmem")'
+    """
+    # translate any input arguments into an embeddable String
+    if init_batch_args:
+        batch_overrides = ', '.join(
+            f'{k}={repr(v)}' for k, v in init_batch_args.items()
+        )
+    else:
+        batch_overrides = ''
+    init_hail_code = f"""
+from cpg_utils.hail_batch import init_batch
+init_batch({batch_overrides})
+"""
+    python_code = f"""
+{'' if not setup_hail else init_hail_code}
+{inspect.getsource(module)}
+{func_name}{func_args}
+"""
+    return f"""\
+set -o pipefail
+set -ex
+{''}
+{('pip3 install ' + ' '.join(packages)) if packages else ''}
+cat << EOT >> script.py
+{python_code}
+EOT
+python3 script.py
+"""
 
 def subset_vcf(
     b: hb.Batch,
     vcf: hb.ResourceGroup,
     interval: hb.ResourceFile,
+    out_path: Path,
     job_attrs: dict | None = None,
 ) -> Job:
     """
     Subset VCF to provided intervals.
     """
+    if out_path and to_path(out_path).exists():
+        return None
 
     job_attrs = (job_attrs or {}) | {'tool': 'gatk SelectVariants'}
     j = b.new_job('Subset VCF', job_attrs)
     j.image(image_path('gatk'))
-    j.storage('16Gi')
+    j.storage('400Gi')
     j.memory('standard')
-    j.cpu(2)
+    j.cpu(16)
 
     j.declare_resource_group(
         output_vcf={'vcf.gz': '{root}.vcf.gz', 'vcf.gz.tbi': '{root}.vcf.gz.tbi'}
@@ -55,6 +105,7 @@ def subset_vcf(
             monitor_space=True,
         )
     )
+    b.write_output(j.output_vcf, str(out_path))
     return j
 
 
@@ -165,7 +216,7 @@ def add_vep_jobs(
     Runs VEP on provided VCF. Writes a VCF into `out_path` by default,
     unless `out_path` ends with ".ht", in which case writes a Hail table.
     """
-
+    print(to_path(out_path))
     if out_path and to_path(out_path).exists():
         return []
 
@@ -177,44 +228,64 @@ def add_vep_jobs(
         }
     )
 
-    input_vcf_parts: list[hb.ResourceGroup] = []
-    intervals_j, intervals = scatter_intervals(
-        b=b,
-        scatter_count=scatter_count,
-        job_attrs=job_attrs,
-        output_prefix=tmp_prefix / f'intervals_{scatter_count}',
-    )
-    if intervals_j:
-        jobs.append(intervals_j)
+    # input_vcf_parts: list[hb.ResourceGroup] = []
+    # intervals_j, intervals = scatter_intervals(
+    #     b=b,
+    #     scatter_count=scatter_count,
+    #     job_attrs=job_attrs,
+    #     output_prefix=tmp_prefix / f'intervals_{scatter_count}',
+    # )
+    # if intervals_j:
+    #     jobs.append(intervals_j)
 
     result_parts_bucket = tmp_prefix / 'vep' / 'parts'
     result_part_paths = []
+    result_part_paths_u = []
 
-    # Splitting variant calling by intervals
-    for idx in range(scatter_count):
-        result_part_path = result_parts_bucket / f'part{idx + 1}.jsonl'
+    # # Splitting variant calling by intervals
+    # for idx in range(scatter_count):
+    #     result_part_path = result_parts_bucket / f'part{idx + 1}.jsonl'
+    #     result_part_paths.append(result_part_path)
+    #     result_part_path_u = result_parts_bucket / 'unannotated' / f'part{idx + 1}_output_vcf.vcf.gz'
+    #     result_part_paths_u.append(result_part_path_u)
+    #     # if to_path(result_part_path_u).exists():
+    #     #     continue
+    #     if to_path(result_part_path).exists():
+    #         continue
+
+        # subset_j = subset_vcf(
+        #     b,
+        #     vcf=siteonly_vcf,
+        #     interval=intervals[idx],
+        #     out_path=result_part_paths_u[idx],
+        #     job_attrs=(job_attrs or {}) | {'part': f'{idx + 1}/{scatter_count}'},
+        # )
+        # jobs.append(subset_j)
+        # input_vcf_parts.append(subset_j.output)
+    #Add a checkpoint here, so that this part of the job doesn't need to be repeated?
+
+    for idx in range(100):
+    #for idx in range(100):
+    # for idx in range(97):
+        #result_part_path = result_parts_bucket / f'2023_October_RGP_version_part{idx + 1}.jsonl'
+        result_part_path = result_parts_bucket / f'clinvar_part{idx + 1}.jsonl'
         result_part_paths.append(result_part_path)
-        if to_path(result_part_path).exists():
-            continue
-
-        subset_j = subset_vcf(
-            b,
-            vcf=siteonly_vcf,
-            interval=intervals[idx],
-            job_attrs=(job_attrs or {}) | {'part': f'{idx + 1}/{scatter_count}'},
-        )
-        jobs.append(subset_j)
-        input_vcf_parts.append(subset_j.output_vcf)
+    # print(result_part_paths)
+        # result_part_path = result_parts_bucket / f'part{idx + 1}.jsonl'
+        # result_part_paths.append(result_part_path)
+        # if to_path(result_part_path).exists():
+        #     continue
 
         # noinspection PyTypeChecker
-        vep_one_job = vep_one(
-            b,
-            vcf=subset_j.output_vcf['vcf.gz'],
-            out_path=result_part_paths[idx],
-            job_attrs=(job_attrs or {}) | {'part': f'{idx + 1}/{scatter_count}'},
-        )
-        if vep_one_job:
-            jobs.append(vep_one_job)
+        # vep_one_job = vep_one(
+        #     b,
+        #     # vcf=input_vcf_parts[idx],
+        #     vcf=result_parts_bucket / 'unannotated' / f'part{idx + 1}_output_vcf.vcf.gz',
+        #     out_path=result_part_paths[idx],
+        #     job_attrs=(job_attrs or {}) | {'part': f'{idx + 1}/{scatter_count}'},
+        # )
+        # if vep_one_job:
+        #     jobs.append(vep_one_job)
 
     j = gather_vep_json_to_ht(
         b=b,
@@ -243,6 +314,8 @@ def gather_vep_json_to_ht(
 
     j = b.new_job('VEP', job_attrs)
     j.image(get_config()['workflow']['driver_image'])
+    #Changed line below
+    j.memory('highmem')
     j.command(
         query_command(
             vep,
@@ -250,11 +323,13 @@ def gather_vep_json_to_ht(
             [str(p) for p in vep_results_paths],
             str(out_path),
             setup_gcp=True,
+            init_batch_args={'worker_memory': 'highmem', 'worker_cores': 8, 'driver_cores':8},
         )
     )
     if depends_on:
         j.depends_on(*depends_on)
     return j
+
 
 
 def vep_one(
@@ -277,6 +352,7 @@ def vep_one(
     j.memory('highmem')
     j.storage('10Gi')
     j.cpu(2)
+    # j.always_run()
 
     if not isinstance(vcf, hb.ResourceFile):
         vcf = b.read_input(str(vcf))
@@ -284,8 +360,10 @@ def vep_one(
     # gcsfuse works only with the root bucket, without prefix:
     vep_mount_path = reference_path('vep_110_mount')
     data_mount = to_path(f'/{vep_mount_path.drive}')
+    # print(data_mount)
     j.cloudfuse(vep_mount_path.drive, str(data_mount), read_only=True)
     vep_dir = data_mount / '/'.join(vep_mount_path.parts[3:])
+    # print(vep_dir)
 
     # assume VEP 110 has a standard install location
     loftee_conf = {

@@ -57,12 +57,12 @@ def generate_clinvar_table(
     )
 
     # write output files date-specific
-    get_batch().write_output(bash_job.subs, str(clinvar_folder / sub_file))
-    get_batch().write_output(bash_job.vars, str(clinvar_folder / var_file))
+    # get_batch().write_output(bash_job.subs, str(clinvar_folder / sub_file))
+    # get_batch().write_output(bash_job.vars, str(clinvar_folder / var_file))
 
     # region: run the summarise_clinvar_entries script
     summarise = get_batch().new_job(name='summarise clinvar')
-    summarise.depends_on(bash_job)
+    # summarise.depends_on(bash_job)
 
     summarise.cpu(2).image(get_config()['workflow']['driver_image']).storage('20G')
     authenticate_cloud_credentials_in_job(summarise)
@@ -117,8 +117,6 @@ def generate_annotated_data(
     j = get_batch().new_job('annotate cohort')
     j.image(get_config()['workflow']['driver_image'])
 
-    # run seqr_loader, originally applying vep only (line 128=False) testing change of line 128 to True
-    # This should allow clinvar annotation so that clinvar_by_codon has info to run on?
     j.command(
         query_command(
             seqr_loader,
@@ -131,6 +129,8 @@ def generate_annotated_data(
             setup_gcp=True,
         )
     )
+    #push it
+    j.always_run
     if dependency:
         j.depends_on(dependency)
     return j
@@ -152,12 +152,21 @@ def main(date: str | None = None, folder: str | None = None):
     # print the config we use once
     _conf = get_config()
 
+    # if folder is None:
+    #     cloud_folder = to_path(
+    #         join(
+    #             get_config()['storage']['common']['analysis'],
+    #             'aip_clinvar',
+    #             datetime.now().strftime('%y-%m'),
+    #         )
+    #     )
+
     if folder is None:
         cloud_folder = to_path(
             join(
                 get_config()['storage']['common']['analysis'],
                 'aip_clinvar',
-                datetime.now().strftime('%y-%m'),
+                '24-04',
             )
         )
 
@@ -181,11 +190,18 @@ def main(date: str | None = None, folder: str | None = None):
         logging.info('Clinvar data already exists, exiting')
         return
 
+    # temp_path = to_path(
+    #     join(
+    #         get_config()['storage']['common']['tmp'],
+    #         'aip_clinvar',
+    #         datetime.now().strftime('%y-%m'),
+    #     )
+    # )
     temp_path = to_path(
         join(
             get_config()['storage']['common']['tmp'],
             'aip_clinvar',
-            datetime.now().strftime('%y-%m'),
+            '24-04',
         )
     )
 
@@ -193,12 +209,14 @@ def main(date: str | None = None, folder: str | None = None):
 
     # generate a new round of clinvar decisions
     if not all(output.exists() for output in [clinvar_table_path, snv_vcf]):
+        print("generating new round of clinvar decisions")
         dependency = generate_clinvar_table(
             clinvar_table_path, cloud_folder, snv_vcf, date
         )
 
     # create the annotation job(s)
     if not annotated_clinvar.exists():
+        print("creating annotation job(s)")
         dependency = generate_annotated_data(
             annotated_clinvar, snv_vcf, temp_path, dependency
         )

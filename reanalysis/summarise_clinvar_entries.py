@@ -52,7 +52,7 @@ USELESS_RATINGS = {'no assertion criteria provided'}
 MAJORITY_RATIO = 0.6
 MINORITY_RATIO = 0.2
 STRONG_REVIEWS = ['practice guideline', 'reviewed by expert panel']
-ORDERED_ALLELES = [f'chr{x}' for x in list(range(1, 23))] + ['chrX', 'chrY', 'chrM']
+ORDERED_ALLELES = [f'chr{x}' for x in list(range(1, 23))] + ['chrX', 'chrY', 'chrM','chrUn']
 
 # published Nov 2015, available pre-print since March 2015
 # assumed to be influential since 2016
@@ -409,10 +409,13 @@ def sort_decisions(all_subs: list[dict]) -> list[dict]:
     Returns:
         a list of submissions, sorted hierarchically on chr & pos
     """
-
-    return sorted(
+    s = sorted(
         all_subs, key=lambda x: (ORDERED_ALLELES.index(x['contig']), x['position'])
     )
+    # print(s)
+    ns = [x for x in s if x['contig'] != 'chrUn']
+    # print(ns)
+    return ns
 
 
 def parse_into_table(json_path: str, out_path: str) -> hl.Table:
